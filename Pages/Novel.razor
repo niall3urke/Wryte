@@ -1,0 +1,303 @@
+﻿@page "/novel/{id:guid}"
+
+@inject NavigationManager nav
+@inject DatabaseService db
+@inject ModalService modal
+
+<EventsFlyout Events="_events" ShowFlyout="_flyoutActive" Parent="_eventParent" Close="() => { _flyoutActive = false; }" Refresh="RefreshEvents"></EventsFlyout>
+<section class="hero is-dark">
+    <div class="hero-head">
+        <div class="container">
+            <div class="level pt-5 pb-5">
+                <div class="level-left">
+                    <div class="level-item is-hidden-mobile">
+                        <nav class="breadcrumb" aria-label="breadcrumbs">
+                            <ul>
+                                <li><a class="has-text-white" href="/">Novels</a></li>
+                                @if (_categories != null && _categories.Any(x => x.Id == Settings.Display.LastView))
+                                {
+                                    <li class="is-active"><a class="has-text-white" href="/novel/@_novel.Id">@_novel.Name</a></li>
+                                    <li class="is-active"><a class="has-text-white" href="/novel/@_novel.Id" aria-current="page">@(_categories?.First(x => x.Id == Settings.Display.LastView).Name)</a></li>
+                                }
+                                else
+                                {
+                                    <li class="is-active"><a class="has-text-white" href="/novel/@_novel.Id" aria-current="page">@_novel.Name</a></li>
+                                }
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="buttons is-centered">
+                        <button class="button is-dark">
+                            <span class="icon">
+                                <i class="fa fa-user"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-body">
+        <div class="container">
+            <div class="field">
+                <label class="heading has-text-centered">Novel</label>
+                <p class="control">
+                    <input class="input is-static title is-1 is-size-3-mobile has-text-centered" type="text" value="@_novel.Name" @onchange="Title_Changed" />
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="hero-foot">
+        <div class="container">
+            <div class="tabs is-medium is-fullwidth is-boxed">
+                <ul>
+                    @foreach (var category in _categories)
+                    {
+                        bool active = Settings.Display.LastView == category.Id;
+                        string text = active ? "has-text-dark" : "";
+                        string fill = active ? "is-active" : "";
+
+                        <li class="@fill">
+                            <a class="@text" @onclick="() => SetCategoryView(category.Id)">@category.Name</a>
+                        </li>
+                    }
+                    <li>
+                        <a @onclick="AddCategory">
+                            <span>&nbsp;</span><i class="fa fa-plus"></i><span>&nbsp;</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="section">
+    <div class="container">
+        <CascadingValue Value="Settings">
+            <Categories Id="Id" CategoryId="Settings.Display.LastView" ShowEvents="ShowEvents" EditCategory="EditCategory" DeleteCategory="DeleteCategory" />
+        </CascadingValue>
+    </div>
+</section>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter] public Guid Id { get; set; }
+
+    // Fields
+
+    private List<ItemModel> _categories;
+
+    private List<ItemModel> _events;
+
+    private ItemModel _eventParent;
+
+    private ItemModel _novel;
+
+    private bool _flyoutActive;
+
+    // Constructors
+
+    public Novel()
+    {
+        _categories = new List<ItemModel>();
+
+        _events = new List<ItemModel>();
+
+        _novel = new ItemModel();
+    }
+
+    // Events
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _categories = await db.GetChildren(Id, DatabaseService.Categories);
+
+            _novel = await db.Get(Id, DatabaseService.Novels);
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Methods
+
+    private async void SetCategoryView(Guid viewId)
+    {
+        Settings.Display.LastView = viewId;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // =============================
+    // ===== Methods: title changed
+    // =============================
+
+    private async void Title_Changed(ChangeEventArgs e)
+    {
+        if (e == null || e.Value is null)
+            return;
+
+        string title = e.Value.ToString();
+
+        if (string.IsNullOrWhiteSpace(title))
+            return;
+
+        _novel.Name = title;
+
+        await db.Save(_novel, DatabaseService.Novels);
+    }
+
+    // =================================
+    // ===== Methods: Adding Categories
+    // =================================
+
+    private void AddCategory()
+    {
+        modal.OnClose += AddCategory_Closed;
+
+        modal.Show<AddItem>();
+    }
+
+    private async void AddCategory_Closed(ModalResult result)
+    {
+        modal.OnClose -= AddCategory_Closed;
+
+        if (!result.Success)
+        {
+            return;
+        }
+
+        var category = new ItemModel
+            {
+                Name = result.Data as string,
+                Index = _categories.Count(),
+                ParentId = _novel.Id,
+            };
+
+        await db.Create(category, DatabaseService.Categories);
+
+        _categories.Add(category);
+
+        Settings.Display.LastView = category.Id;
+    }
+
+    // ===========================
+    // ===== Methods: Show Events
+    // ===========================
+
+    private async Task RefreshEvents()
+    {
+        await ShowEvents(Settings.Display.LastView);
+    }
+
+    private async Task ShowEvents(Guid id)
+    {
+        _eventParent = await db.Get(id, DatabaseService.Categories);
+
+        _events = await db.GetChildren(id, DatabaseService.Events);
+
+        _flyoutActive = true;
+
+        StateHasChanged();
+    }
+
+    // =============================
+    // ===== Methods: Edit Category
+    // =============================
+
+    private Guid _categoryEditId;
+
+    private void EditCategory(Guid id)
+    {
+        var category = _categories.Find(x => x.Id == id);
+
+        _categoryEditId = id;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Title", category.Name);
+
+        modal.OnClose += EditCategory_Closed;
+
+        modal.Show<EditTitle>(parameters);
+    }
+
+    private async void EditCategory_Closed(ModalResult result)
+    {
+        modal.OnClose -= EditCategory_Closed;
+
+        if (!result.Success)
+            return;
+
+        if (result.Data is not string title)
+            return;
+
+        var category = _categories.Find(x => x.Id == _categoryEditId);
+
+        if (category == null)
+            return;
+
+        category.Name = title;
+
+        await db.Save(category, DatabaseService.Categories);
+    }
+
+    // ===============================
+    // ===== Methods: Delete Category
+    // ===============================
+
+    private Guid _categoryDeleteId;
+
+    private void DeleteCategory(Guid id)
+    {
+        _categoryDeleteId = id;
+
+        modal.OnClose += DeleteCategory_Closed;
+
+        modal.Show<DeleteItem>();
+    }
+
+    private async void DeleteCategory_Closed(ModalResult result)
+    {
+        modal.OnClose -= DeleteCategory_Closed;
+
+        if (result.Success)
+        {
+            var category = _categories.Find(x => x.Id == _categoryDeleteId);
+
+            var items = await db.GetChildren(_categoryDeleteId, DatabaseService.Groups);
+
+            foreach (var item in items)
+            {
+                await db.Delete(item.Id, DatabaseService.Items);
+            }
+
+            await db.Delete(category.Id, DatabaseService.Categories);
+
+            _categories.Remove(category);
+
+            // Loop all the categories and update their stored indexes
+            for (int i = 0; i < _categories.Count; i++)
+            {
+                _categories[i].Index = i;
+
+                await db.Save(_categories[i], DatabaseService.Categories);
+            }
+
+            Settings.Display.LastView = Guid.Empty;
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+}

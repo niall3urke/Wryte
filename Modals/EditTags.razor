@@ -1,0 +1,144 @@
+﻿@inject DatabaseService db
+@inject ModalService modal
+
+<div class="box p6-tablet">
+    <a class="is-pulled-right delete" @onclick="Close_Click"></a>
+    <p class="title">Tags</p>
+    <p class="subtitle">Add tags to help categorize your novel</p>
+    <div class="columns">
+        <div class="column">
+            <div class="field">
+                <p class="control">
+                    <input class="input" type="text" @bind="_currentTitle" />
+                </p>
+            </div>
+        </div>
+        <div class="column is-narrow">
+            <button class="button is-dark" @onclick="Add_Click">
+                Add
+            </button>
+        </div>
+    </div>
+    <span class="tags">
+        @foreach (var tag in _tags)
+        {
+            <span class="tag is-light is-medium">
+                @tag.Name
+                <button class="delete" @onclick="() => Delete_Click(tag)"></button>
+            </span>
+        }
+    </span>
+</div>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] ModalParameters Parameters { get; set; }
+
+    // Fields
+
+    private string _currentTitle;
+
+    private List<ItemModel> _tags;
+
+    private ItemModel _item;
+
+    // Constructors
+
+    public EditTags()
+    {
+        _tags = new List<ItemModel>();
+
+        _item = new ItemModel();
+    }
+
+    // Events
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Parameters.TryGet<ItemModel>("Item", out _item))
+        {
+            _tags = await db.GetTags(_item.Id);
+        }
+    }
+
+    // Methods
+
+    private async void Add_Click()
+    {
+        // Get a viable tag
+        string title = _currentTitle.ToLower().Trim();
+
+        // Get all the tags
+        var tags = await db.Get(DatabaseService.Tags);
+
+        ItemModel tag;
+
+        // Does it exist already
+        if (tags.Any(x => x.Name == title))
+        {
+            tag = tags.Where(x => x.Name == title).FirstOrDefault();
+
+            // Does a map for this item already exist?
+            var maps = await db.GetItemTagMaps(_item.Id);
+
+            if (!maps.Any(x => x.TagId == tag.Id))
+            {
+                // Tag map doesn't exist, create it
+                await db.Create(new ItemTagModel
+                {
+                    ItemId = _item.Id,
+                    TagId = tag.Id
+                });
+            }
+        }
+        else
+        {
+            // Create the tag
+            tag = new ItemModel
+            {
+                Name = title
+            };
+
+            // Add it to the database
+            await db.Create(tag, DatabaseService.Tags);
+
+            // Create the map
+            await db.Create(new ItemTagModel
+            {
+                ItemId = _item.Id,
+                TagId = tag.Id
+            });
+        }
+
+        _currentTitle = "";
+
+        _tags.Add(tag);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void Delete_Click(ItemModel tag)
+    {
+        var maps = await db.GetItemTagMaps(_item.Id);
+
+        if (maps.Any(x => x.TagId == tag.Id))
+        {
+            var map = maps.Where(x => x.TagId == tag.Id).FirstOrDefault();
+
+            await db.Delete(map);
+
+            _tags.Remove(tag);
+
+            StateHasChanged();
+        }
+    }
+
+    private void Close_Click()
+    {
+        modal.Close(ModalResult.Cancel());
+    }
+
+
+}

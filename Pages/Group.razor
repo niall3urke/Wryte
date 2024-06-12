@@ -1,0 +1,546 @@
+﻿@page "/novel/group/{id:guid}"
+
+@using System.Globalization
+
+@inject NavigationManager nav
+@inject DatabaseService db
+@inject ModalService modal
+
+<EventsFlyout Events="_events" ShowFlyout="_flyoutActive" Parent="_group" Close="() => { _flyoutActive = false; }" Refresh="RefreshEvents"></EventsFlyout>
+<section class="hero is-dark">
+    <div class="hero-head">
+        <div class="container">
+            <div class="level pt-5 pb-5">
+                <div class="level-left">
+                    <div class="level-item is-hidden-mobile">
+                        <nav class="breadcrumb" aria-label="breadcrumbs">
+                            <ul>
+                                <li><a class="has-text-white" href="/">Novels</a></li>
+                                <li><a class="has-text-white" href="/novel/@_novel.Id">@_novel.Name</a></li>
+                                <li><a class="has-text-white" href="/novel/@_novel.Id">@_category.Name</a></li>
+                                <li class="is-active"><a class="has-text-white" href="/novel/group/@_group.Id" aria-current="page">@_group.Name</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="buttons is-centered">
+                        <button class="button is-dark">
+                            <span class="icon">
+                                <i class="fa fa-user"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-body">
+        <div class="container">
+            <div class="field">
+                <label class="heading has-text-centered">@_category.Name</label>
+                <p class="control">
+                    <input class="input is-static title is-1 is-size-3-mobile has-text-centered" value="@_group.Name" @onchange="Title_Changed" />
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="section">
+    <div class="container">
+        <div class="mb-6">
+            <div class="level">
+                <div class="level-left">
+                    <div class="level-item">
+                        <div class="buttons">
+                            <button class="button is-dark is-rounded" @onclick="New_Click">
+                                <span class="icon">
+                                    <i class="fa fa-plus"></i>
+                                </span>
+                                <span>New</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <div class="buttons">
+                            <button class="button is-light" title="Sort by number" @onclick="() => ToggleListBy(ListBy.Number)">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ListNumberDesc ? "fa-sort-numeric-down-alt" : "fa-sort-numeric-down")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-light" title="Sort by name" @onclick="() => ToggleListBy(ListBy.Name)">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ListNameDesc ? "fa-sort-alpha-down-alt" : "fa-sort-alpha-down")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-light" title="@(Settings.Display.ShowArchived ? "Hide archived" : "Show arhived")" @onclick="async () => await ToggleArchive()">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ShowArchived ? "fa-eye-slash" : "fa-eye")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-light" title="@(Settings.Display.ListItems ? "Card view" : "List view")" @onclick="() => Settings.Display.ListItems = !Settings.Display.ListItems">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ListItems ? "fa-th" : "fa-list")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-light" title="Show events" @onclick="() => ShowEvents(Id)">
+                                <span class="icon">
+                                    <i class="fa fa-calendar"></i>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mb-6" ondragover="event.preventDefault();">
+            @if (Settings.Display.ListItems)
+            {
+                foreach (var scene in GetOrderedItems())
+                {
+                    <CascadingValue Value="Settings">
+                        <ListView Item="scene" Prefix="/novel/item" Edit="Edit" Copy="Copy" Archive="Archive" Delete="Delete" Drag="Drag" Drop="Drop"></ListView>
+                    </CascadingValue>
+                }
+            }
+            else
+            {
+                <div class="columns is-multiline">
+                    @foreach (var scene in GetOrderedItems())
+                    {
+                        <div class="column is-3-desktop is-4-tablet">
+                            <CascadingValue Value="Settings">
+                                <CardView Item="scene" ItemTags="_tags[scene.Id]" Prefix="/novel/item" Edit="Edit" Copy="Copy" Tags="Tags" Archive="Archive" Delete="Delete" Drag="Drag" Drop="Drop"></CardView>
+                            </CascadingValue>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter] public Guid Id { get; set; }
+
+    // Fields
+
+    private Dictionary<Guid, List<ItemModel>> _tags;
+
+    private List<ItemModel> _events;
+
+    private List<ItemModel> _items;
+
+    private ItemModel _category;
+
+    private ItemModel _group;
+
+    private ItemModel _novel;
+
+    private bool _flyoutActive;
+
+    // Constructors
+
+    public Group()
+    {
+        _tags = new Dictionary<Guid, List<ItemModel>>();
+
+        _events = new List<ItemModel>();
+
+        _items = new List<ItemModel>();
+
+        _category = new ItemModel();
+
+        _group = new ItemModel();
+
+        _novel = new ItemModel();
+    }
+
+    // Events
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Initialize();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Methods
+
+    private async Task Initialize()
+    {
+        if (Id != Guid.Empty)
+        {
+            await GetChildren();
+
+            _group = await db.Get(Id, DatabaseService.Groups);
+
+            _category = await db.Get(_group.ParentId, DatabaseService.Categories);
+
+            _novel = await db.Get(_category.ParentId, DatabaseService.Novels);
+        }
+    }
+
+    private async Task GetChildren()
+    {
+        _items = await db.GetChildren(Id, DatabaseService.Items);
+
+        if (!Settings.Display.ShowArchived)
+        {
+            _items = _items.Where(x => !x.Archived).ToList();
+        }
+
+        _tags.Clear();
+
+        foreach (var item in _items)
+        {
+            var tags = await db.GetTags(item.Id);
+
+            _tags.Add(item.Id, tags);
+        }
+    }
+
+    private async void Title_Changed(ChangeEventArgs e)
+    {
+        if (e == null)
+            return;
+
+        if (e.Value is not string title)
+            return;
+
+        if (string.IsNullOrWhiteSpace(title))
+            return;
+
+        _group.Name = title;
+
+        await db.Save(_group, DatabaseService.Groups);
+    }
+
+    // ===============================
+    // ===== Methods: creating scenes
+    // ===============================
+
+    private void New_Click()
+    {
+        modal.OnClose += NewScene_Close;
+
+        modal.Show<AddItem>();
+    }
+
+    private async void NewScene_Close(ModalResult result)
+    {
+        modal.OnClose -= NewScene_Close;
+
+        if (!result.Success)
+            return;
+
+        if (result.Data is not string title)
+            return;
+
+        var item = new ItemModel
+        {
+            Name = title,
+            ParentId = _group.Id,
+            Index = _items.Count()
+        };
+
+        await db.Create(item, DatabaseService.Items);
+
+        nav.NavigateTo($"/novel/item/{item.Id}");
+    }
+
+    // =========================
+    // ===== Methods: archiving
+    // =========================
+
+    private async Task ToggleArchive()
+    {
+        Settings.Display.ShowArchived = !Settings.Display.ShowArchived;
+
+        await GetChildren();
+    }
+
+    // ========================
+    // ===== Methods: ordering
+    // ========================
+
+    private void ToggleListBy(ListBy listBy)
+    {
+        Settings.Display.ListBy = listBy;
+
+        if (listBy == ListBy.Name)
+        {
+            Settings.Display.ListNameDesc = !Settings.Display.ListNameDesc;
+        }
+        else
+        {
+            Settings.Display.ListNumberDesc = !Settings.Display.ListNumberDesc;
+        }
+    }
+
+    private IEnumerable<INovelItem> GetOrderedItems()
+    {
+        if (Settings.Display.ListBy == ListBy.Name)
+        {
+            return Settings.Display.ListNameDesc
+                ? _items.OrderByDescending(x => x.Name)
+                : _items.OrderBy(x => x.Name);
+        }
+        else
+        {
+            return Settings.Display.ListNumberDesc
+                ? _items.OrderByDescending(x => x.Index)
+                : _items.OrderBy(x => x.Index);
+        }
+    }
+
+    // ==============================
+    // ===== Methods: editing scenes
+    // ==============================
+
+    private ItemModel _itemEditTitle;
+
+    private void Edit(Guid id)
+    {
+        var item = _items.Where(x => x.Id == id).FirstOrDefault();
+
+        if (item == null)
+            return;
+
+        _itemEditTitle = item;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Title", item.Name);
+
+        modal.OnClose += Edit_Close;
+
+        modal.Show<EditTitle>(parameters);
+    }
+
+    private async void Edit_Close(ModalResult result)
+    {
+        modal.OnClose -= Edit_Close;
+
+        if (result.Success)
+        {
+            var title = result.Data as string;
+
+            _itemEditTitle.Name = title;
+
+            await db.Save(_itemEditTitle, DatabaseService.Items);
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ==============================
+    // ===== Methods: copying scenes
+    // ==============================
+
+    private async void Copy(Guid id)
+    {
+        var child = _items.Where(x => x.Id == id).FirstOrDefault();
+
+        // Get a copy of the selected scene
+        var copy = new ItemModel
+            {
+                Name = $"Copy of {child.Name}",
+                ParentId = child.ParentId,
+                Text = child.Text,
+                Html = child.Html,
+            };
+
+        // Save the copied scene to the database
+        await db.Create(copy, DatabaseService.Items);
+
+        // Insert the scene at the same index as the original
+        _items.Insert(child.Index + 1, copy);
+
+        // Loop all the chapters and update their stored indexes
+        for (int i = 0; i < _items.Count; i++)
+        {
+            // Set the current chapters index
+            _items[i].Index = i;
+
+            // Save the chapter
+            await db.Save(_items[i], DatabaseService.Items);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // =========================
+    // ===== Methods: archiving
+    // =========================
+
+    private async Task Archive(Guid id)
+    {
+        var item = _items.FirstOrDefault(x => x.Id == id);
+
+        if (item != null)
+        {
+            item.Archived = !item.Archived;
+
+            await db.Save(item, DatabaseService.Items);
+
+            await GetChildren();
+        }
+    }
+
+    // =========================
+    // ===== Methods: edit tags
+    // =========================
+
+    private async void Tags(Guid id)
+    {
+        var parameters = new ModalParameters();
+
+        var group = await db.Get(id, DatabaseService.Items);
+
+        parameters.Add("Item", group);
+
+        modal.OnClose += Tags_Close;
+
+        modal.Show<EditTags>(parameters);
+    }
+
+    private async void Tags_Close(ModalResult rseult)
+    {
+        modal.OnClose -= Tags_Close;
+
+        await GetChildren();
+
+        StateHasChanged();
+    }
+
+
+    // ===========================
+    // ===== Methods: Show Events
+    // ===========================
+
+    private async Task RefreshEvents()
+    {
+        await ShowEvents(Settings.Display.LastView);
+    }
+
+    private async Task ShowEvents(Guid id)
+    {
+        _events = await db.GetChildren(id, DatabaseService.Events);
+
+        _flyoutActive = true;
+
+        StateHasChanged();
+    }
+
+    // ===============================
+    // ===== Methods: deleting scenes
+    // ===============================
+
+    private ItemModel _itemToDelete;
+
+    private void Delete(Guid id)
+    {
+        _itemToDelete = _items.Where(x => x.Id == id).FirstOrDefault();
+
+        modal.OnClose += Delete_Close;
+
+        modal.Show<DeleteItem>();
+    }
+
+    private async void Delete_Close(ModalResult result)
+    {
+        modal.OnClose -= Delete_Close;
+
+        if (result.Success)
+        {
+
+            var sessions = await db.GetItemSessions(_itemToDelete.Id);
+
+            foreach (var session in sessions)
+            {
+                await db.Delete(session.Id, DatabaseService.Sessions);
+            }
+
+            await db.Delete(_itemToDelete.Id, DatabaseService.Items);
+
+            _items.Remove(_itemToDelete);
+
+            // Loop all the scenes and update their stored indexes
+            for (int i = 0; i < _items.Count; i++)
+            {
+                // Set the current chapters index
+                _items[i].Index = i;
+
+                // Save the chapter
+                await db.Save(_items[i], DatabaseService.Items);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ===========================
+    // ===== Methods: Drag & drop
+    // ===========================
+
+    // Track which chapter is being dragged
+    private int _currentIndex;
+
+    private void Drag(Guid id)
+    {
+        // Get the index of the dragged chapter
+        _currentIndex = _items.Where(x => x.Id == id).FirstOrDefault().Index;
+    }
+
+    private async void Drop(Guid id)
+    {
+        var scene = _items.Where(x => x.Id == id).FirstOrDefault();
+
+        if (scene == null)
+            return;
+
+        // Get the index of chapter we dropped onto
+        int index = _items.IndexOf(scene);
+
+        // Get the chapter that was dragged
+        var dragged = _items[_currentIndex];
+
+        // If the dragged item is null, return early
+        if (dragged == null)
+            return;
+
+        // Remove the dragged chapter from its current index
+        _items.RemoveAt(_currentIndex);
+
+        // Insert the dragged chapter
+        _items.Insert(index, dragged);
+
+        // Loop all the chapters and update their stored indexes
+        for (int i = 0; i < _items.Count; i++)
+        {
+            // Set the current chapters index
+            _items[i].Index = i;
+
+            // Save the chapter
+            await db.Save(_items[i], DatabaseService.Items);
+        }
+
+        // Update the current index
+        _currentIndex = index;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+}

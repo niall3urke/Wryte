@@ -1,0 +1,203 @@
+﻿@inject DatabaseService db
+@inject ModalService modal
+
+@if (Parent != null)
+{
+    <div class="flyout @(ShowFlyout ? "is-active" : "") has-background-white">
+        <div class="is-sticky has-background-white px-4 py-4" style="z-index: 25; box-shadow: 0 0.5em 1em -0.125em rgb(10 10 10 / 10%);">
+            <div class="level">
+                <div class="level-left">
+                    <div class="level-item">
+                        <div>
+                            <p class="heading is-marginless">Events</p>
+                            <p>@Parent.Name</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <div class="buttons">
+                            <button class="button is-white" @onclick="AddEvent">
+                                <span class="icon">
+                                    <i class="fa fa-calendar-plus"></i>
+                                </span>
+                            </button>
+                            <button class="button is-white" @onclick="ToggleOrder">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ListEventsDesc ? "fa-sort-numeric-down-alt" : "fa-sort-numeric-down")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-white" @onclick="ToggleCondensed">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ListEventsCondensed ? "fa-expand-alt" : "fa-compress-alt")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-white" @onclick="async () => await Close.InvokeAsync()">
+                                <span class="icon">
+                                    <i class="fa fa-times"></i>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (Events != null && Events.Count > 0)
+        {
+            <ul class="timeline">
+                @foreach (var item in GetOrderedEvents())
+                {
+                    @if (Settings.Display.ListEventsCondensed)
+                    {
+                        <li style="padding: 0.25rem;" @onclick="() => EditEvent(item)">
+
+                            <div>
+                                <p>@item.OccursAt.ToString("dd, MMM yyyy") &ndash; <span class="has-text-weight-semibold">@item.Name</span></p>
+                            </div>
+                        </li>
+                    }
+                    else
+                    {
+                        <li @onclick="() => EditEvent(item)">
+                            <div>
+                                <p class="heading">@item.OccursAt.ToString("dd, MMM yyyy")</p>
+                                <p class="title is-4">@item.Name</p>
+                                <p class="subtitle is-6">@item.Text</p>
+                            </div>
+                        </li>
+                    }
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter]
+    public List<ItemModel> Events { get; set; }
+
+    [Parameter]
+    public bool ShowFlyout { get; set; }
+
+    [Parameter]
+    public ItemModel Parent { get; set; }
+
+    [Parameter]
+    public EventCallback Close { get; set; }
+
+    [Parameter]
+    public EventCallback Refresh { get; set; }
+
+    // Fields
+
+    private bool _condensed;
+
+    // Methods
+
+    // ===== Methods: add/edit events
+
+    private void AddEvent()
+    {
+        var item = new ItemModel
+            {
+                ParentId = Parent.Id
+            };
+
+        modal.OnClose += AddEventClosed;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Event", item);
+
+        modal.Show<AddEvent>(parameters);
+    }
+
+    private void EditEvent(ItemModel item)
+    {
+        modal.OnClose += EditEventClosed;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Event", item);
+
+        modal.Show<AddEvent>(parameters);
+    }
+
+    private async void EditEventClosed(ModalResult result)
+    {
+        modal.OnClose -= EditEventClosed;
+
+        if (result == null)
+            return;
+
+        if (result.Success)
+        {
+            if (result.Data is ItemModel item)
+            {
+                await db.Save(item, DatabaseService.Events);
+            }
+        }
+
+        if (Refresh.HasDelegate)
+        {
+            await Refresh.InvokeAsync();
+        }
+    }
+
+    private async void AddEventClosed(ModalResult result)
+    {
+        modal.OnClose -= AddEventClosed;
+
+        if (result == null)
+            return;
+
+        if (!result.Success)
+            return;
+
+        if (result.Data is not ItemModel item)
+            return;
+
+        await db.Create(item, DatabaseService.Events);
+
+        Events.Add(item);
+
+        StateHasChanged();
+    }
+
+    // ===== Methods: display
+
+    private IEnumerable<ItemModel> GetOrderedEvents()
+    {
+        if (Settings.Display.ListEventsDesc)
+        {
+            return Events.OrderByDescending(x => x.OccursAt).ToList();
+        }
+        else
+        {
+            return Events.OrderBy(x => x.OccursAt).ToList();
+        }
+    }
+
+    private void ToggleOrder()
+    {
+        Settings.Display.ListEventsDesc = !Settings.Display.ListEventsDesc;
+
+        StateHasChanged();
+    }
+
+    private void ToggleCondensed()
+    {
+        Settings.Display.ListEventsCondensed = !Settings.Display.ListEventsCondensed;
+
+        StateHasChanged();
+    }
+
+
+}

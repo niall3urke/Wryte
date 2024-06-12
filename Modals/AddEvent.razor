@@ -1,0 +1,122 @@
+﻿@inject ModalService modal
+@inject DatabaseService db
+@using Wryte.Models
+
+<div class="box p6-tablet">
+    <a class="is-pulled-right delete" @onclick="Close_Click"></a>
+    <p class="title">Event</p>
+    <p class="subtitle">What happened and when</p>
+    @if (_event != null)
+    {
+        <div class="mb-5">
+            <div class="field">
+                <label class="label">Name</label>
+                <p class="control">
+                    <input class="input" type="text" @bind="_event.Name" @onkeyup="OnKeyUp" @ref="_input" />
+                </p>
+            </div>
+            <div class="field">
+                <label class="label">Description</label>
+                <p class="control">
+                    <textarea class="textarea" @bind="_event.Text" @onkeyup="OnKeyUp"></textarea>
+                </p>
+            </div>
+            <div class="field">
+                <label class="label">Date</label>
+                <p class="control">
+                    <input class="input" type="datetime" @bind="_event.OccursAt" @onkeyup="OnKeyUp" />
+                </p>
+            </div>
+        </div>
+    }
+    <div class="level">
+        <div class="level-left">
+            @if (_editing)
+            {
+                <div class="level-item">
+                    <button class="button is-danger @(_loading ? "is-loading": "")" @onclick="Delete_Click">
+                        Delete
+                    </button>
+                </div>
+            }
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <button class="button is-dark" @onclick="Create_Click">
+                    @(_editing ? "Update" : "Create")
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<button class="modal-close is-large" aria-label="close" @onclick="Close_Click"></button>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter]
+    public ModalParameters Parameters { get; set; }
+
+    // Fields
+
+    private ElementReference _input;
+
+    private ItemModel _event;
+
+    private bool _editing;
+
+    private bool _loading;
+
+    // Events
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Parameters.TryGet("Event", out _event))
+        {
+            _editing = await db.Exists(_event.Id, DatabaseService.Events);
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _input.FocusAsync();
+        }
+    }
+
+    private void OnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+        {
+            Create_Click();
+        }
+    }
+
+    // Methods
+
+    private void Create_Click()
+    {
+        modal.Close(ModalResult.OK<ItemModel>(_event));
+    }
+
+    private async void Delete_Click()
+    {
+        _loading = true;
+
+        StateHasChanged();
+
+        await Task.Delay(10);
+
+        await db.Delete(_event.Id, DatabaseService.Events);
+
+        _loading = false;
+        
+        Close_Click();
+    }
+
+    private void Close_Click() => modal.Close(ModalResult.Cancel());
+
+
+}

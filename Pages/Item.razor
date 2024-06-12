@@ -1,0 +1,467 @@
+﻿@page "/novel/item/{Id:guid}"
+
+@using System.Timers
+
+@inject NavigationManager nav
+@inject DatabaseService db
+@inject ModalService modal
+@inject IJSRuntime js
+
+@implements IDisposable
+
+<EventsFlyout Events="_events" ShowFlyout="_flyoutActive" Parent="_item" Close="() => { _flyoutActive = false; }" Refresh="ShowEvents"></EventsFlyout>
+<div class="is-flex is-flex-column" style="min-height: 100vh;">
+    <section class="hero is-dark @_fade" @onmousemove="Mouse_Move">
+        <div class="hero-head">
+            <div class="container">
+                <div class="level pt-5 pb-5">
+                    <div class="level-left">
+                        <div class="level-item is-hidden-mobile">
+                            <nav class="breadcrumb" aria-label="breadcrumbs">
+                                <ul>
+                                    <li><a class="has-text-white" href="/">Novels</a></li>
+                                    <li><a class="has-text-white" href="/novel/@_novel.Id">@_novel.Name</a></li>
+                                    <li><a class="has-text-white" href="/novel/@_novel.Id">@_category.Name</a></li>
+                                    <li><a class="has-text-white" href="/novel/group/@_group.Id">@_group.Name</a></li>
+                                    <li class="is-active"><a class="has-text-white" href="/novel/item/@_item.Id" aria-current="page">@_item.Name</a></li>
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="level-right">
+                        <div class="level-item">
+                            <div class="buttons is-centered">
+                                <button class="button is-dark" @onclick="Settings_Click">
+                                    <span class="icon">
+                                        <i class="fa fa-cog"></i>
+                                    </span>
+                                </button>
+                                <button class="button is-dark">
+                                    <span class="icon">
+                                        <i class="fa fa-user"></i>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (Settings.ShowHeader)
+        {
+            <div class="hero-body">
+                <div class="container">
+                    <div class="field">
+                        <label class="heading has-text-centered">@_group.Name</label>
+                        <p class="control">
+                            <input class="input is-static title is-1 is-size-3-mobile has-text-centered" @bind="_item.Name" />
+                        </p>
+                    </div>
+                </div>
+            </div>
+        }
+    </section>
+    <section class="section is-flex-grow-1" @onmousemove="Mouse_Move">
+        <div class="container @Settings.PageWidth @(Settings.DarkMode ? "has-text-white" : "")">
+            <div @ref="_quillElement" class="@(Settings.Typewriter ? "is-typewriter" : "")" style="overflow-anchor: none;" @onkeydown="Editor_OnKeyDown"></div>
+            <div style="overflow-anchor: auto; height: 1px;"></div>
+        </div>
+    </section>
+    <section class="section @_fade">
+        <div class="container @Settings.PageWidth @(Settings.DarkMode ? "has-text-white" : "")">
+            <div class="level">
+                <div class="level-left">
+                    <div class="level-item">
+                        <div class="buttons are-small">
+                            <button class="button @(Settings.DarkMode ? "is-dark" : "is-light")" title="Scroll to top" @onclick="ScrollTop_Click">
+                                <span class="icon">
+                                    <i class="fa fa-arrow-up"></i>
+                                </span>
+                            </button>
+                            <button class="button is-small @(Settings.DarkMode ? "is-dark" : "is-light")" title="Events" @onclick="ShowEvents">
+                                <span class="icon">
+                                    <i class="fa fa-calendar"></i>
+                                </span>
+                            </button>
+                            <button class="button is-small @(Settings.DarkMode ? "is-dark" : "is-light")" title="Add new" @onclick="NewItem_Click">
+                                <span class="icon">
+                                    <i class="fa fa-plus"></i>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <p class="help has-text-right">@_wordCount words</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter] public Guid Id { get; set; }
+
+    // Fields - reference types
+
+    private SettingsModel _originalSettings;
+
+    private ElementReference _quillElement;
+
+    private List<ItemModel> _events;
+
+    private SessionModel _session;
+
+    private ItemModel _category;
+
+    private ItemModel _group;
+
+    private ItemModel _item;
+
+    private ItemModel _novel;
+
+
+    private Timer _saveTimer;
+
+    private Timer _fadeTimer;
+
+    // Fields - value types
+
+    private bool _afterFirstRender;
+
+    private bool _flyoutActive;
+
+    private int _wordCount;
+
+    private string _fade;
+
+    // ===================
+    // ===== Constructors
+    // ===================
+
+    public Item()
+    {
+        _events = new List<ItemModel>();
+
+        _category = new ItemModel();
+
+        _group = new ItemModel();
+
+        _novel = new ItemModel();
+
+        _item = new ItemModel();
+
+
+        _saveTimer = new Timer();
+
+        _fadeTimer = new Timer();
+    }
+
+    // ========================
+    // ===== Events: overrides
+    // ========================
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != Guid.Empty)
+        {
+            _item = await db.Get(Id, DatabaseService.Items);
+
+            _group = await db.Get(_item.ParentId, DatabaseService.Groups);
+
+            _category = await db.Get(_group.ParentId, DatabaseService.Categories);
+
+            _novel = await db.Get(_category.ParentId, DatabaseService.Novels);
+
+            if (_session == null)
+            {
+                _session = new SessionModel
+                    {
+                        ChapterId = _group.Id,
+                        NovelId = _novel.Id,
+                        SceneId = _item.Id
+                    };
+
+                if (_item != null && !string.IsNullOrWhiteSpace(_item.Text))
+                {
+                    _session.WordCountStart = _item.Text.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                }
+
+                await db.Create(_session);
+            }
+
+            // We hit the OnParameterSet method twice on start up and once
+            // when navigating away from the page. The first time we hit it
+            // we'll go on the set the _afterFirstRender variable. On leaving
+            // the page, _afterFirstRender won't be set, and hence we'll avoid
+            // a nasty exception where _quillElement is null. It's messy but works.
+
+            if (_afterFirstRender)
+            {
+                await js.InvokeAsync<string>("QuillFunctions.createQuill", _quillElement, Settings.Toolbar.Theme, Settings.Toolbar);
+
+                await js.InvokeVoidAsync("QuillFunctions.loadQuillContent", _quillElement, _item.Text);
+
+                if (Settings.AutoSave)
+                    InitializeAutoSave();
+
+                if (Settings.AutoFade)
+                    InitializeAutoFade();
+
+                _fade = "";
+
+                _afterFirstRender = false;
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _afterFirstRender = true;
+        }
+    }
+
+    // ===========================
+    // ===== Methods: Show Events
+    // ===========================
+
+    private async Task ShowEvents()
+    {
+        _events = await db.GetChildren(Id, DatabaseService.Events);
+
+        _flyoutActive = true;
+
+        StateHasChanged();
+    }
+
+    // =========================
+    // ===== Methods: auto fade
+    // =========================
+
+    private void InitializeAutoFade()
+    {
+        _fadeTimer.Elapsed -= FadeTimer_Elapsed;
+
+        _fadeTimer.Elapsed += FadeTimer_Elapsed;
+
+        _fadeTimer.Interval = 10000;
+
+        _fadeTimer.Enabled = true;
+    }
+
+    private async void FadeTimer_Elapsed(object sender, ElapsedEventArgs e)
+    {
+        _fade = Settings.AutoFade ? "fade-out" : "";
+
+        _fadeTimer.Stop();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void StopAutoFade()
+    {
+        _fadeTimer.Enabled = false;
+
+        _fadeTimer.Elapsed -= FadeTimer_Elapsed;
+    }
+
+    private void Mouse_Move(MouseEventArgs e)
+    {
+        if (!Settings.AutoFade)
+        {
+            _fade = "";
+        }
+        else
+        {
+            _fade = "";
+
+            _fadeTimer.Stop();
+
+            _fadeTimer.Start();
+        }
+    }
+
+    // =========================
+    // ===== Methods: auto save
+    // =========================
+
+    private void InitializeAutoSave()
+    {
+        _saveTimer.Elapsed -= SaveTimer_Elapsed;
+
+        _saveTimer.Elapsed += SaveTimer_Elapsed;
+
+        _saveTimer.Interval = 10000;
+
+        _saveTimer.Enabled = true;
+    }
+
+    private async void SaveTimer_Elapsed(object sender, ElapsedEventArgs e)
+    {
+        await SaveContent();
+    }
+
+    private void StopAutoSave()
+    {
+        _saveTimer.Enabled = false;
+
+        _saveTimer.Elapsed -= SaveTimer_Elapsed;
+    }
+
+    private async Task SaveContent()
+    {
+        _item.Text = await js.InvokeAsync<string>("QuillFunctions.getQuillContent", _quillElement);
+
+        await db.Save(_item, DatabaseService.Items);
+    }
+
+    // ==========================
+    // ===== Methods: word count
+    // ==========================
+
+    private async void Editor_OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == " " || e.Key == ".")
+        {
+            string text = await js.InvokeAsync<string>("QuillFunctions.getQuillText", _quillElement);
+
+            _wordCount = text.Split(" ", StringSplitOptions.RemoveEmptyEntries).Length;
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ========================
+    // ===== Methods: settings
+    // ========================
+
+    private void Settings_Click()
+    {
+        _originalSettings = Settings.Clone();
+
+        modal.OnClose += Settings_Close;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Settings", Settings);
+
+        modal.Show<EditSettings>(parameters);
+    }
+
+    private async void Settings_Close(ModalResult result)
+    {
+        modal.OnClose -= Settings_Close;
+
+        if (result.Success)
+        {
+            Settings = result.Data as SettingsModel;
+
+            if (Settings.RefreshRequired(_originalSettings))
+            {
+                nav.NavigateTo(nav.Uri, forceLoad: true);
+            }
+
+            if (Settings.AutoSave)
+            {
+                InitializeAutoSave();
+            }
+            else
+            {
+                StopAutoSave();
+            }
+
+            if (Settings.AutoFade)
+            {
+                InitializeAutoFade();
+            }
+            else
+            {
+                StopAutoFade();
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // =============================
+    // ===== Methods: new note
+    // =============================
+
+    private void NewItem_Click()
+    {
+        modal.OnClose += NewItem_Close;
+
+        modal.Show<AddItem>();
+    }
+
+    private async void NewItem_Close(ModalResult result)
+    {
+        modal.OnClose -= NewItem_Close;
+
+        if (result.Success)
+        {
+            var item = new ItemModel
+                {
+                    Name = result.Data as string,
+                    ParentId = _group.Id,
+                };
+
+            int count = (await db.GetChildren(_group.Id, DatabaseService.Items)).Count - 1;
+
+            item.Index = count;
+
+            await db.Create(item, DatabaseService.Items);
+
+            nav.NavigateTo($"/novel/{_group.Name.ToLower()}/{item.Id}");
+        }
+    }
+
+    // =======================
+    // ===== Methods: general
+    // =======================
+
+    private async void ScrollTop_Click()
+    {
+        await js.InvokeVoidAsync("scrollTop");
+    }
+
+    async void IDisposable.Dispose()
+    {
+        await SaveContent();
+        await SaveSessionInfo();
+
+        StopAutoSave();
+        StopAutoFade();
+
+        _saveTimer.Dispose();
+        _fadeTimer.Dispose();
+    }
+
+    private async Task SaveSessionInfo()
+    {
+        if (string.IsNullOrWhiteSpace(_item.Text))
+        {
+            _session.WordCountEnd = 0;
+        }
+        else
+        {
+            _session.WordCountEnd = _item.Text.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Count();
+        }
+
+        await db.Save(_session);
+    }
+
+
+}

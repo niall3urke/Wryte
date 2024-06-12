@@ -1,0 +1,226 @@
+﻿@page "/statistics"
+
+<section class="hero is-dark">
+    <div class="hero-head">
+        <div class="container">
+            <div class="level pt-5 pb-5">
+                <div class="level-left">
+                    <div class="level-item is-hidden-mobile">
+                        <nav class="breadcrumb" aria-label="breadcrumbs">
+                            <ul>
+                                <li><a class="has-text-white" href="/">Novels</a></li>
+                                <li class="is-active"><a class="has-text-white" href="/statistics">Stastistics</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="buttons is-centered">
+                        <button class="button is-dark">
+                            <span class="icon">
+                                <i class="fa fa-user"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-body">
+        <div class="container">
+            <div class="field">
+                <label class="heading has-text-centered">Your</label>
+                <p class="control">
+                    <input class="input is-static title is-1 is-size-3-mobile has-text-centered" type="text" value="Statistics" readonly />
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="section has-background-white">
+    <div class="container">
+        <div class="mb-6">
+            <div class="level is-mobile">
+                <div class="level-left">
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        @if (_novels != null)
+                        {
+                            <div class="select">
+                                <select @onchange="NovelChanged">
+                                    <option>All novels</option>
+                                    @foreach (var novel in _novels)
+                                    {
+                                        <option value="@novel.Id">@novel.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (_helper != null)
+        {
+            <div class="mb-6">
+                <Chart Id="wordsPerDay" Config="GetChartConfig()"></Chart>
+            </div>
+            <div class="mb-6">
+                <p class="is-size-5 mb-5">Productivity</p>
+                <div class="columns">
+                    <div class="column is-3">
+                        <article class="message is-dark">
+                            <div class="message-body">
+                                <p class="heading">Best Day</p>
+                                <p><span class="title is-3">@_helper.GetMostProductDayOfWeek().ToString()</span></p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-dark">
+                            <div class="message-body">
+                                <p class="heading">Best Time</p>
+                                <p><span class="title is-3">@_helper.GetMostProductiveTimeOfDay().ToString()</span></p>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+                <p class="is-size-5 mb-5">Words Written</p>
+                <div class="columns is-multiline">
+                    <div class="column is-3">
+                        <article class="message is-dark">
+                            <div class="message-body">
+                                <p class="heading">Today</p>
+                                <p><span class="title is-3">@_helper.LastDay.Words</span> words</p>
+                                <p class="help">
+                                    <span class="icon is-small">
+                                        <i class="fa fa-clock"></i>
+                                    </span>
+                                    <span>@_helper.LastDay.Time.ToString("h'h 'm'm'")</span>
+                                </p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-dark">
+                            <div class="message-body">
+                                <p class="heading">This Week</p>
+                                <p><span class="title is-3">@_helper.LastWeek.Words</span> words</p>
+                                <p class="help">
+                                    <span class="icon is-small">
+                                        <i class="fa fa-clock"></i>
+                                    </span>
+                                    <span>@_helper.LastWeek.Time.ToString("h'h 'm'm'")</span>
+                                </p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-dark">
+                            <div class="message-body">
+                                <p class="heading">This Month</p>
+                                <p><span class="title is-3">@_helper.LastMonth.Words</span> words</p>
+                                <p class="help">
+                                    <span class="icon is-small">
+                                        <i class="fa fa-clock"></i>
+                                    </span>
+                                    <span>@_helper.LastMonth.Time.ToString("h'h 'm'm'")</span>
+                                </p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-dark">
+                            <div class="message-body">
+                                <p class="heading">This Year</p>
+                                <p><span class="title is-3">@_helper.LastYear.Words</span> words</p>
+                                <p class="help">
+                                    <span class="icon is-small">
+                                        <i class="fa fa-clock"></i>
+                                    </span>
+                                    <span>@_helper.LastYear.Time.ToString("h'h 'm'm'")</span>
+                                </p>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-6">
+                <p class="is-size-5 mb-5">Average Words</p>
+                <div class="columns is-multiline">
+                    <div class="column is-3">
+                        <article class="message is-info">
+                            <div class="message-body">
+                                <p class="heading">Per Day</p>
+                                <p><span class="title is-3">@_helper.Average.Day</span> words</p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-info">
+                            <div class="message-body">
+                                <p class="heading">Per Week</p>
+                                <p><span class="title is-3">@_helper.Average.Week</span> words</p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-info">
+                            <div class="message-body">
+                                <p class="heading">Per Month</p>
+                                <p><span class="title is-3">@_helper.Average.Month</span> words</p>
+                            </div>
+                        </article>
+                    </div>
+                    <div class="column is-3">
+                        <article class="message is-info">
+                            <div class="message-body">
+                                <p class="heading">Per Year</p>
+                                <p><span class="title is-3">@_helper.Average.Year</span> words</p>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+
+                @if (_helper.AveragesEstimated)
+                {
+                    <p class="help">*Some or all of your averages make use of projections.</p>
+                }
+            </div>
+        }
+    </div>
+</section>
+@*
+    @if (_helper != null)
+    {
+    <p>Average number of words this month: @WordsAverage words</p>
+    <p>Words this month: @WordsMonth</p>
+    <p>Words this week: @WordsWeek</p>
+    <p>Words this day: @WordsDay</p>
+
+    <p class="heading">All Time</p>
+    <p>Chapters @_helper.AllTime.Chapters</p>
+    <p>Scenes @_helper.AllTime.Scenes</p>
+    <p>Words @_helper.AllTime.Words</p>
+
+    <p class="heading">Year</p>
+    <p>Chapters @_helper.LastYear.Chapters</p>
+    <p>Scenes @_helper.LastYear.Scenes</p>
+    <p>Words @_helper.LastYear.Words</p>
+
+    <p class="heading">Month</p>
+    <p>Chapters @_helper.LastMonth.Chapters</p>
+    <p>Scenes @_helper.LastMonth.Scenes</p>
+    <p>Words @_helper.LastMonth.Words</p>
+
+    <p class="heading">Week</p>
+    <p>Chapters @_helper.LastWeek.Chapters</p>
+    <p>Scenes @_helper.LastWeek.Scenes</p>
+    <p>Words @_helper.LastWeek.Words</p>
+
+    <p class="heading">Day</p>
+    <p>Chapters @_helper.LastDay.Chapters</p>
+    <p>Scenes @_helper.LastDay.Scenes</p>
+    <p>Words @_helper.LastDay.Words</p>
+    }*@

@@ -1,0 +1,109 @@
+﻿@inject DatabaseService db
+
+<aside class="content">
+    <ul>
+        @foreach (var novel in _novels)
+        {
+            <li @key="novel">
+                <a @onclick="async () => await Novel_Click(novel.Id)">@novel.Name</a>
+                <ul>
+                    @foreach (var category in _categories)
+                    {
+                        if (category.ParentId == novel.Id)
+                        {
+                            <li @key="category">
+                                <a @onclick="async () => await Category_Click(category.Id)">@category.Name</a>
+                                <ul>
+                                    @foreach (var group in _groups)
+                                    {
+                                        if (group.ParentId == category.Id)
+                                        {
+                                            <li @key="group">
+                                                <a @onclick="() => Group_Click(group.Id)">@group.Name</a>
+                                                <ul>
+                                                    @foreach (var item in _items)
+                                                    {
+                                                        if (item.ParentId == group.Id)
+                                                        {
+                                                            <li @key="item">
+                                                                <a @onclick="() => Item_Click(item.Id)">@item.Name</a>
+                                                            </li>
+                                                        }
+                                                    }
+                                                </ul>
+                                            </li>
+                                        }
+                                    }
+                                </ul>
+                            </li>
+                        }
+                    }
+                </ul>
+            </li>
+        }
+    </ul>
+</aside>
+@code {
+
+    // Fields
+
+    private IEnumerable<ItemModel> _novels;
+
+    private IEnumerable<ItemModel> _categories;
+
+    private IEnumerable<ItemModel> _groups;
+
+    private IEnumerable<ItemModel> _items;
+
+    // Constructors
+
+    public SideMenu()
+    {
+        _categories = new List<ItemModel>();
+        _groups = new List<ItemModel>();
+        _novels = new List<ItemModel>();
+        _items = new List<ItemModel>();
+    }
+
+    // Events
+
+    protected override async Task OnInitializedAsync()
+    {
+        _novels = await db.Get(DatabaseService.Novels);
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        base.OnAfterRender(firstRender);
+    }
+
+    // Methods
+
+    private async Task Novel_Click(Guid id)
+    {
+        _categories = await db.GetChildren(id, DatabaseService.Categories);
+        _groups = new List<ItemModel>();
+        _items = new List<ItemModel>();
+        StateHasChanged();
+    }
+
+    private async Task Category_Click(Guid id)
+    {
+        _groups = await db.GetChildren(id, DatabaseService.Groups);
+        _items = new List<ItemModel>();
+        StateHasChanged();
+    }
+
+    private async Task Group_Click(Guid id)
+    {
+        _items = await db.GetChildren(id, DatabaseService.Items);
+        StateHasChanged();
+    }
+
+    private void Item_Click(Guid id)
+    {
+    }
+
+
+
+}

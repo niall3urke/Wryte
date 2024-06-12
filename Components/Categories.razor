@@ -1,0 +1,465 @@
+﻿@inject ModalService modal
+@inject DatabaseService db
+@inject NavigationManager nav
+
+<div class="mb-6">
+    <div class="level">
+        <div class="level-left">
+            <div class="level-item">
+                <button class="button is-dark is-rounded" @onclick="Create">
+                    <span class="icon">
+                        <i class="fa fa-plus"></i>
+                    </span>
+                    <span>New</span>
+                </button>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <div class="buttons">
+                    <button class="button is-light" title="Sort by number" @onclick="() => ToggleListBy(ListBy.Number)">
+                        <span class="icon">
+                            <i class="fa @(Settings.Display.ListNumberDesc ? "fa-sort-numeric-down-alt" : "fa-sort-numeric-down")"></i>
+                        </span>
+                    </button>
+                    <button class="button is-light" title="Sort by name" @onclick="() => ToggleListBy(ListBy.Name)">
+                        <span class="icon">
+                            <i class="fa @(Settings.Display.ListNameDesc ? "fa-sort-alpha-down-alt" : "fa-sort-alpha-down")"></i>
+                        </span>
+                    </button>
+                    <button class="button is-light" title="@(Settings.Display.ShowArchived ? "Hide archived" : "Show arhived")" @onclick="async () => await ToggleArchive()">
+                        <span class="icon">
+                            <i class="fa @(Settings.Display.ShowArchived ? "fa-eye-slash" : "fa-eye")"></i>
+                        </span>
+                    </button>
+                    <button class="button is-light" title="@(Settings.Display.ListItems ? "Card view" : "List view")" @onclick="() => Settings.Display.ListItems = !Settings.Display.ListItems">
+                        <span class="icon">
+                            <i class="fa @(Settings.Display.ListItems ? "fa-th" : "fa-list")"></i>
+                        </span>
+                    </button>
+                    <button class="button is-light" title="Show events" @onclick="() => ShowEvents.InvokeAsync(_category.Id)">
+                        <span class="icon">
+                            <i class="fa fa-calendar"></i>
+                        </span>
+                    </button>
+                    <button class="button is-light" title="Rename category" @onclick="() => EditCategory.InvokeAsync(_category.Id)">
+                        <span class="icon">
+                            <i class="fa fa-edit"></i>
+                        </span>
+                    </button>
+                    <button class="button is-light" title="Delete category" @onclick="() => DeleteCategory.InvokeAsync(_category.Id)">
+                        <span class="icon has-text-danger">
+                            <i class="fa fa-trash"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="mb-6" ondragover="event.preventDefault();">
+    @if (_groups == null)
+    {
+        <section class="hero is-light is-small">
+            <div class="hero-body">
+                <div class="buttons is-centered">
+                    <button class="button is-light is-loading"></button>
+                </div>
+            </div>
+        </section>
+    }
+    else
+    {
+        if (Settings.Display.ListItems)
+        {
+            foreach (var item in GetOrderedItems())
+            {
+                <CascadingValue Value="Settings">
+                    <ListView Item="item" Prefix="/novel/group" Edit="Edit" Copy="Copy" Archive="Archive" Delete="Delete" Drag="Drag" Drop="Drop"></ListView>
+                </CascadingValue>
+            }
+        }
+        else
+        {
+            <div class="columns is-multiline">
+                @foreach (var item in GetOrderedItems())
+                {
+                    <div class="column is-3-desktop is-4-tablet">
+                        <CascadingValue Value="Settings">
+                            <CardView Item="item" ItemTags="_tags[item.Id]" Prefix="/novel/group" Edit="Edit" Copy="Copy" Archive="Archive" Tags="Tags" Delete="Delete" Drag="Drag" Drop="Drop"></CardView>
+                        </CascadingValue>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter] public EventCallback<Guid> DeleteCategory { get; set; }
+
+    [Parameter] public EventCallback<Guid> EditCategory { get; set; }
+
+    [Parameter] public EventCallback<Guid> ShowEvents { get; set; }
+
+    [Parameter] public Guid CategoryId { get; set; }
+
+    [Parameter] public Guid Id { get; set; }
+
+    // Fields
+
+    private Dictionary<Guid, List<ItemModel>> _tags;
+
+    private List<ItemModel> _groups;
+
+    private ItemModel _category;
+
+    private ItemModel _novel;
+
+    // Constructor 
+
+    public Categories()
+    {
+        _tags = new Dictionary<Guid, List<ItemModel>>();
+
+        _groups = new List<ItemModel>();
+
+        _category = new ItemModel();
+
+        _novel = new ItemModel();
+    }
+
+    // Events
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _category = await db.Get(CategoryId, DatabaseService.Categories);
+
+        _novel = await db.Get(Id, DatabaseService.Novels);
+
+        await GetChildren();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task GetChildren()
+    {
+        _groups = await db.GetChildren(CategoryId, DatabaseService.Groups);
+
+        if (!Settings.Display.ShowArchived)
+        {
+            _groups = _groups.Where(x => !x.Archived).ToList();
+        }
+
+        _tags.Clear();
+
+        foreach (var item in _groups)
+        {
+            var tags = await db.GetTags(item.Id);
+
+            if (!_tags.ContainsKey(item.Id))
+            {
+                _tags.Add(item.Id, tags);
+            }
+        }
+    }
+
+    // ========================
+    // ===== Methods: creating
+    // ========================
+
+    private void Create()
+    {
+        modal.OnClose += Create_Close;
+
+        modal.Show<AddItem>();
+    }
+
+    private async void Create_Close(ModalResult result)
+    {
+        modal.OnClose -= Create_Close;
+
+        if (!result.Success)
+            return;
+
+        if (result.Data is not string title)
+            return;
+
+        var group = new ItemModel
+            {
+                Name = title,
+                ParentId = _category.Id,
+                Index = _groups.Count(),
+            };
+
+        await db.Create(group, DatabaseService.Groups);
+
+        nav.NavigateTo($"/novel/group/{group.Id}");
+    }
+
+    // =========================
+    // ===== Methods: archiving
+    // =========================
+
+    private async Task ToggleArchive()
+    {
+        Settings.Display.ShowArchived = !Settings.Display.ShowArchived;
+
+        await GetChildren();
+    }
+
+    // ========================
+    // ===== Methods: ordering
+    // ========================
+
+    private void ToggleListBy(ListBy listBy)
+    {
+        Console.WriteLine("ToggleByList hit");
+        Settings.Display.ListBy = listBy;
+
+        if (listBy == ListBy.Name)
+        {
+            Settings.Display.ListNameDesc = !Settings.Display.ListNameDesc;
+        }
+        else
+        {
+            Settings.Display.ListNumberDesc = !Settings.Display.ListNumberDesc;
+        }
+    }
+
+    private IEnumerable<INovelItem> GetOrderedItems()
+    {
+        if (Settings.Display.ListBy == ListBy.Name)
+        {
+            return Settings.Display.ListNameDesc
+                ? _groups.OrderByDescending(x => x.Name)
+                : _groups.OrderBy(x => x.Name);
+        }
+        else
+        {
+            return Settings.Display.ListNumberDesc
+                ? _groups.OrderByDescending(x => x.Index)
+                : _groups.OrderBy(x => x.Index);
+        }
+    }
+
+    // =======================
+    // ===== Methods: editing
+    // =======================
+
+    private ItemModel _itemEditTitle;
+
+    private void Edit(Guid id)
+    {
+        var item = _groups.Where(x => x.Id == id).FirstOrDefault();
+
+        if (item == null)
+            return;
+
+        _itemEditTitle = item;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Title", item.Name);
+
+        modal.OnClose += Edit_Close;
+
+        modal.Show<EditTitle>(parameters);
+    }
+
+    private async void Edit_Close(ModalResult result)
+    {
+        modal.OnClose -= Edit_Close;
+
+        if (!result.Success)
+            return;
+
+        if (result.Data is not string title)
+            return;
+
+        _itemEditTitle.Name = title;
+
+        await db.Save(_itemEditTitle, DatabaseService.Groups);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // =======================
+    // ===== Methods: copying
+    // =======================
+
+    private async void Copy(Guid id)
+    {
+        var child = _groups.Where(x => x.Id == id).FirstOrDefault();
+
+        if (child == null)
+            return;
+
+        var copy = new ItemModel
+            {
+                Name = $"Copy of {child.Name}",
+                ParentId = child.ParentId,
+            };
+
+        await db.Create(copy, DatabaseService.Groups);
+
+        // Now insert the copy into the list
+        _groups.Insert(child.Index + 1, copy);
+
+        // Loop all the items and update their stored indexes
+        for (int i = 0; i < _groups.Count; i++)
+        {
+            // Set the current character index
+            _groups[i].Index = i;
+
+            // Save the updated index
+            await db.Save(_groups[i], DatabaseService.Groups);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // =========================
+    // ===== Methods: archiving
+    // =========================
+
+    private async Task Archive(Guid id)
+    {
+        var child = _groups.FirstOrDefault(x => x.Id == id);
+
+        if (child != null)
+        {
+            child.Archived = !child.Archived;
+
+            await db.Save(child, DatabaseService.Groups);
+
+            await GetChildren();
+        }
+    }
+
+    // =========================
+    // ===== Methods: edit tags
+    // =========================
+
+    private async void Tags(Guid id)
+    {
+        var parameters = new ModalParameters();
+
+        var group = await db.Get(id, DatabaseService.Groups);
+
+        parameters.Add("Item", group);
+
+        modal.OnClose += Tags_Close;
+
+        modal.Show<EditTags>(parameters);
+    }
+
+    private async void Tags_Close(ModalResult rseult)
+    {
+        modal.OnClose -= Tags_Close;
+
+        await GetChildren();
+
+        StateHasChanged();
+    }
+
+
+    // ========================
+    // ===== Methods: Deleting
+    // ========================
+
+    private ItemModel _itemToDelete;
+
+    private void Delete(Guid id)
+    {
+        _itemToDelete = _groups.Where(x => x.Id == id).FirstOrDefault();
+
+        modal.OnClose += Delete_Close;
+
+        modal.Show<DeleteItem>();
+    }
+
+    private async void Delete_Close(ModalResult result)
+    {
+        modal.OnClose -= Delete_Close;
+
+        if (result.Success)
+        {
+            await db.Delete(_itemToDelete.Id, DatabaseService.Groups);
+
+            _groups.Remove(_itemToDelete);
+
+            // Loop all the items and update their stored indexes
+            for (int i = 0; i < _groups.Count; i++)
+            {
+                // Set the current character index
+                _groups[i].Index = i;
+
+                // Save the updated index
+                await db.Save(_groups[i], DatabaseService.Groups);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ===========================
+    // ===== Methods: Drag & drop
+    // ===========================
+
+    // Track which character is being dragged
+    private int _currentIndex;
+
+    private void Drag(Guid id)
+    {
+        _currentIndex = _groups.Where(x => x.Id == id).FirstOrDefault().Index;
+    }
+
+    private async void Drop(Guid id)
+    {
+        var child = _groups.Where(x => x.Id == id).FirstOrDefault();
+
+        if (child == null)
+            return;
+
+        // Get the index of character we dropped onto
+        int index = _groups.IndexOf(child);
+
+        // Get the character that was dragged
+        var dragged = _groups[_currentIndex];
+
+        // If the dragged item is null, return early
+        if (dragged == null)
+            return;
+
+        // Remove the dragged character from its current index
+        _groups.RemoveAt(_currentIndex);
+
+        // Insert the dragged character
+        _groups.Insert(index, dragged);
+
+        // Loop all the characters and update their stored indexes
+        for (int i = 0; i < _groups.Count; i++)
+        {
+            // Set the current characters index
+            _groups[i].Index = i;
+
+            // Save the character
+            await db.Save(_groups[i], DatabaseService.Groups);
+        }
+
+        // Update the current index
+        _currentIndex = index;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    }

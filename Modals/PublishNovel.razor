@@ -1,0 +1,273 @@
+﻿@using Wryte.Code
+@using Wryte.Models.DTO
+
+@inject ModalService modal
+@inject DatabaseService db
+@inject IJSRuntime js
+@inject HttpClient client
+
+<div class="box p6-tablet">
+    <a class="is-pulled-right delete" @onclick="Close_Click"></a>
+    <p class="title">Publish</p>
+    <p class="subtitle">Just a few things to settle first</p>
+    @if (Loaded)
+    {
+        @if (State == WizardState.CoverPage)
+        {
+            <div class="mb-6">
+                <div class="field">
+                    <label class="label">Title</label>
+                    <p class="control">
+                        <input class="input" type="text" @bind="NovelDTO.Title">
+                    </p>
+                </div>
+                <div class="field">
+                    <label class="label">Subtitle</label>
+                    <p class="control">
+                        <input class="input" type="text" @bind="NovelDTO.Subtitle">
+                    </p>
+                </div>
+                <div class="field">
+                    <label class="label">Author(s)</label>
+                    <p class="control">
+                        <input class="input" type="text" @bind="NovelDTO.Author">
+                    </p>
+                </div>
+                @*<div class="field">
+                    <label class="label">Cover Image</label>
+                    <div class="field">
+                        <div class="columns is-vcentered">
+                            <div class="column is-narrow">
+                                <p class="control">
+                                    <button class="button is-light">
+                                        <span class="icon">
+                                            <i class="fa fa-upload"></i>
+                                        </span>
+                                        <span>Upload Image</span>
+                                    </button>
+                                </p>
+                            </div>
+                            <div class="column">
+                                <p>Image must be in PNG or JPG format</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>*@
+            </div>
+            <div class="buttons is-right">
+                <button class="button is-white" @onclick="Close_Click">Cancel</button>
+                <button class="button is-link" @onclick="Next_Click">Next</button>
+            </div>
+        }
+        else
+        {
+            <div class="mb-6">
+                <div class="field">
+                    <label class="label">Chapters</label>
+                    <div class="help">
+                        Include and exclude chapters, and update their titles.
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: 350px; overflow-y: auto;">
+                    <table class="table is-fullwidth is-vcentered">
+                        <colgroup>
+                            <col style="width: 0.1%;">
+                            <col>
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>
+                                    <label class="checkbox">
+                                        <input type="checkbox">
+                                    </label>
+                                </th>
+                                <th>Title</th>
+                            </tr>
+                        </thead>
+                        <tbody class="is-vcentered">
+                            @foreach (var chapter in NovelDTO.Chapters)
+                            {
+                                <tr>
+                                    <td>
+                                        <label class="checkbox">
+                                            <input type="checkbox" @bind="chapter.Include">
+                                        </label>
+                                    </td>
+                                    <td>
+                                        <input class="input is-static" type="text" @bind="chapter.Title">
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="buttons is-right">
+                <button class="button is-white" @onclick="Back_Click">Back</button>
+                <button class="button is-link @(_loading ? "is-loading": "")" @onclick="GenerateClicked">Generate</button>
+            </div>
+        }
+    }
+    else
+    {
+        <button class="button is-white is-medium is-loading"></button>
+    }
+</div>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public ModalParameters Parameters { get; set; }
+
+    // Properties
+
+    public NovelDTO NovelDTO { get; set; }
+
+    public WizardState State { get; set; }
+
+    public bool Loaded { get; set; }
+
+    // Fields
+
+    private bool _loading;
+
+    private Guid _id;
+
+    // Events
+
+    protected override void OnInitialized()
+    {
+        Parameters.TryGet<Guid>("Id", out _id);
+
+        NovelDTO = new NovelDTO();
+    }
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (_id == null)
+                return;
+
+            await CompileNovel();
+
+            Loaded = true;
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Methods
+
+    private async Task CompileNovel()
+    {
+        var categories = await db.GetChildren(_id, DatabaseService.Categories);
+
+        var chapterCategory = categories.FirstOrDefault(x => x.Name.ToLower() == "chapters");
+
+        if (chapterCategory == null)
+        {
+            return;
+        }
+
+        var chapters = await db.GetChildren(chapterCategory.Id, DatabaseService.Groups);
+
+        var novel = await db.Get(_id, DatabaseService.Novels);
+
+        var tags = await db.GetTags(_id);
+
+        NovelDTO.Tags = tags.Select(x => x.Name).ToList();
+
+        NovelDTO.Created = novel.Created;
+
+        NovelDTO.Title = novel.Name;
+
+        NovelDTO.Id = novel.Id;
+
+        foreach (var chapter in chapters.OrderBy(x => x.Index))
+        {
+            string text = await CompileChapterText(chapter);
+
+            var chapterDTO = new ChapterDTO
+                {
+                    Number = chapter.Index + 1,
+                    Title = chapter.Name,
+                    Text = text
+                };
+
+            NovelDTO.Chapters.Add(chapterDTO);
+        }
+    }
+
+    private async Task<string> CompileChapterText(ItemModel chapter)
+    {
+        string text = "";
+
+        var scenes = await db.GetChildren(chapter.Id, DatabaseService.Items);
+
+        foreach (var scene in scenes.OrderBy(x => x.Index))
+        {
+            text += scene.Html;
+        }
+
+        return text;
+    }
+
+    void Close_Click() => modal.Close(ModalResult.Cancel());
+
+    void Back_Click() => State = WizardState.CoverPage;
+
+    void Next_Click() => State = WizardState.Chapters;
+
+    async Task GenerateClicked()
+    {
+        await StartLoading();
+
+        try
+        {
+            var nz = new NovelZipper();
+
+            var template = await client.GetByteArrayAsync("files/template.zip");
+
+            string contents = nz.CreateZipString(NovelDTO, template);
+
+            var bytes = Convert.FromBase64String(contents);
+
+            await js.InvokeVoidAsync(
+                "downloadFromByteArray",
+                new
+                {
+                    ByteArray = contents,
+                    FileName = $"{NovelDTO.Title}.epub",
+                    ContentType = "application/zip"
+                });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+
+        _loading = false;
+
+        modal.Close(ModalResult.OK());
+    }
+
+    private async Task StartLoading()
+    {
+        _loading = true;
+
+        StateHasChanged();
+
+        await Task.Delay(10);
+    }
+
+    // Enums
+
+    public enum WizardState
+    {
+        CoverPage,
+        Chapters
+    }
+
+}

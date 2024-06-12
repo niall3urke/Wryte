@@ -1,0 +1,632 @@
+﻿@page "/"
+
+@using System.Globalization
+@using Wryte.Code
+
+@inject NavigationManager nav
+@inject DatabaseService db
+@inject ModalService modal
+
+
+<section class="hero is-dark">
+    <div class="hero-head">
+        <div class="container">
+            <div class="level pt-5 pb-5">
+                <div class="level-left">
+                    <div class="level-item is-hidden-mobile">
+                        <nav class="breadcrumb" aria-label="breadcrumbs">
+                            <ul>
+                                <li class="is-active"><a class="has-text-white" href="/" aria-current="page">Novels</a></li>
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <div class="buttons is-centered">
+                            <button class="button is-dark">
+                                <span class="icon">
+                                    <i class="fa fa-user"></i>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-body">
+        <div class="container">
+            <div class="field">
+                <p class="control">
+                    <input class="input is-static title is-1 is-size-3-mobile has-text-centered" type="text" value="Novels" readonly />
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="section">
+    <div class="container">
+        <div class="mb-6">
+            <div class="level is-mobile">
+                <div class="level-left">
+                    <div class="level-item">
+                        <button class="button is-dark is-rounded" @onclick="NewNovel_Click">
+                            <span class="icon">
+                                <i class="fa fa-plus"></i>
+                            </span>
+                            <span>
+                                New Novel
+                            </span>
+                        </button>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="level-item">
+                        <div class="buttons">
+                            <button class="button is-light" title="@(Settings.Display.ShowArchived ? "Hide archived" : "Show arhived")" @onclick="async () => await ToggleArchive()">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ShowArchived ? "fa-eye-slash" : "fa-eye")"></i>
+                                </span>
+                            </button>
+                            <button class="button is-light" @onclick="() => Settings.Display.ListNovels = !Settings.Display.ListNovels">
+                                <span class="icon">
+                                    <i class="fa @(Settings.Display.ListNovels ? "fa-th" : "fa-list")"></i>
+                                </span>
+                            </button>
+                            <a class="button is-light" href="/statistics">
+                                <span class="icon">
+                                    <i class="fa fa-bar-chart"></i>
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mb-6" ondragover="event.preventDefault();">
+            @if (Settings.Display.ListNovels)
+            {
+                foreach (var novel in _novels.OrderBy(x => x.Index))
+                {
+                    <div class="box @(Settings.DarkMode ? "has-text-white" : "")" style="@(Settings.DarkMode ? "background: #404040;" : "")" draggable="true" @key="novel.Id" @ondrop="() => Drop(novel.Id)" @ondrag="() => Drag(novel.Id)">
+                        <div class="level">
+                            <div class="level-left">
+                                <div class="level-item">
+                                    <span class="icon is-medium grabbable">
+                                        <i class="fa fa-grip-vertical"></i>
+                                    </span>
+                                </div>
+                                <div class="level-item">
+                                    <a href="/novel/@novel.Id">@novel.Name</a>
+                                </div>
+                            </div>
+                            <div class="level-right">
+                                <div class="level-item">
+                                    <span class="tags ml-3 mr-3">
+                                        @if (_tags.ContainsKey(novel.Id))
+                                        {
+                                            foreach (var tag in _tags[novel.Id])
+                                            {
+                                                <span href="/tag/@tag.Id" class="tag is-dark">@tag.Name</span>
+                                            }
+                                        }
+                                    </span>
+                                </div>
+                                <div class="level-item">
+                                    <div class="has-text-centered ml-3 mr-3">
+                                        <p class="heading">Edited</p>
+                                        <p class="help">@novel.Updated.ToString("g", DateTimeFormatInfo.InvariantInfo)</p>
+                                    </div>
+                                </div>
+                                <div class="level-item">
+                                    <div class="buttons">
+                                        <button class="button is-white" @onclick="() => Edit_Click(novel)">
+                                            <span class="icon">
+                                                <i class="fa fa-edit"></i>
+                                            </span>
+                                        </button>
+                                        <button class="button is-white" @onclick="() => Tags_Click(novel)">
+                                            <span class="icon">
+                                                <i class="fa fa-tag"></i>
+                                            </span>
+                                        </button>
+                                        <button class="button is-white" @onclick="() => Copy_Click(novel)">
+                                            <span class="icon">
+                                                <i class="fa fa-copy"></i>
+                                            </span>
+                                        </button>
+                                        <button class="button is-white" title="@(novel.Archived ? "Restore": "Archive")" @onclick="async () => await Archive_Click(novel)">
+                                            <span class="icon">
+                                                <i class="fa @(novel.Archived ? "fa-eye-slash" : "fa-eye")"></i>
+                                            </span>
+                                        </button>
+                                        <button class="button is-white" @onclick="() => Publish_Click(novel)">
+                                            <span class="icon">
+                                                <i class="fa fa-book"></i>
+                                            </span>
+                                        </button>
+                                        <button class="button is-white" @onclick="() => Delete_Click(novel)">
+                                            <span class="icon has-text-danger">
+                                                <i class="fa fa-trash"></i>
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="columns is-multiline">
+                    @foreach (var novel in _novels.OrderBy(x => x.Index))
+                    {
+                        <div class="column is-3-desktop is-4-tablet">
+                            <div class="box @(Settings.DarkMode ? "has-text-white" : "")" style="height: 100%; @(Settings.DarkMode ? "background: #404040;" : "")" draggable="true" @key="novel.Id" @ondrop="() => Drop(novel.Id)" @ondrag="() => Drag(novel.Id)">
+                                <div class="columns is-gapless is-marginless is-mobile mb-3">
+                                    <div class="column">
+                                        <p class="title is-5 mb-3">
+                                            <a href="/novel/@novel.Id">@novel.Name</a>
+                                        </p>
+                                        <p class="heading">
+                                            Edited @novel.Updated.ToString("g", DateTimeFormatInfo.InvariantInfo)
+                                        </p>
+                                    </div>
+                                    <div class="column is-narrow">
+                                        <div class="dropdown is-hoverable is-right">
+                                            <div class="dropdown-trigger">
+                                                <button class="button is-white" aria-haspopup="true" aria-controls="dropdown-menu">
+                                                    <span class="icon is-small">
+                                                        <i class="fas fa-angle-down" aria-hidden="true"></i>
+                                                    </span>
+                                                </button>
+                                            </div>
+                                            <div class="dropdown-menu" id="dropdown-menu" role="menu">
+                                                <div class="dropdown-content">
+                                                    <a class="dropdown-item" @onclick="() => Edit_Click(novel)">
+                                                        <span class="icon">
+                                                            <i class="fa fa-edit"></i>
+                                                        </span>
+                                                        Rename
+                                                    </a>
+                                                    <a class="dropdown-item" @onclick="() => Tags_Click(novel)">
+                                                        <span class="icon">
+                                                            <i class="fa fa-tag"></i>
+                                                        </span>
+                                                        Tags
+                                                    </a>
+                                                    <a class="dropdown-item" @onclick="() => Copy_Click(novel)">
+                                                        <span class="icon">
+                                                            <i class="fa fa-copy"></i>
+                                                        </span>
+                                                        Copy
+                                                    </a>
+                                                    <a class="dropdown-item" title="@(novel.Archived ? "Restore": "Archive")" @onclick="async () => await Archive_Click(novel)">
+                                                        <span class="icon">
+                                                            <i class="fa @(novel.Archived ? "fa-eye-slash" : "fa-eye")"></i>
+                                                        </span>
+                                                        @(novel.Archived ? "Restore" : "Archive")
+                                                    </a>
+                                                    <a class="dropdown-item" @onclick="() => Publish_Click(novel)">
+                                                        <span class="icon">
+                                                            <i class="fa fa-book"></i>
+                                                        </span>
+                                                        Publish
+                                                    </a>
+                                                    <hr class="dropdown-divider">
+                                                    <a class="dropdown-item" @onclick="() => Delete_Click(novel)">
+                                                        <span class="icon has-text-danger">
+                                                            <i class="fa fa-trash"></i>
+                                                        </span>
+                                                        Delete
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="tags">
+                                    @if (_tags.ContainsKey(novel.Id))
+                                    {
+                                        foreach (var tag in _tags[novel.Id])
+                                        {
+                                            <a href="/tags/@tag.Id" class="tag is-dark">@tag.Name</a>
+                                        }
+                                    }
+
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Fields
+
+    private Dictionary<Guid, List<ItemModel>> _tags;
+
+    private List<ItemModel> _novels;
+
+    // Constructors
+
+    public Index()
+    {
+        _tags = new Dictionary<Guid, List<ItemModel>>();
+
+        _novels = new List<ItemModel>();
+    }
+
+    // Events
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Initialized();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Methods
+
+    private async Task Initialized()
+    {
+        _tags = new Dictionary<Guid, List<ItemModel>>();
+
+        await GetNovels();
+    }
+
+    private async Task GetNovels()
+    {
+        _novels = await db.Get(DatabaseService.Novels);
+
+        if (!Settings.Display.ShowArchived)
+        {
+            _novels = _novels.Where(x => !x.Archived).ToList();
+        }
+
+        _tags.Clear();
+
+        foreach (var novel in _novels)
+        {
+            var tags = await db.GetTags(novel.Id);
+
+            if (tags != null && tags.Count > 0)
+            {
+                _tags.Add(novel.Id, tags);
+            }
+        }
+    }
+
+    // ===============================
+    // ===== Methods Toggling archive
+    // ===============================
+
+    private async Task ToggleArchive()
+    {
+        Settings.Display.ShowArchived = !Settings.Display.ShowArchived;
+
+        await GetNovels();
+    }
+
+    // ============================
+    // ===== Methods: create novel
+    // ============================
+
+    private void NewNovel_Click()
+    {
+        modal.OnClose += NewNovel_Close;
+
+        modal.Show<AddItem>();
+    }
+
+    private async void NewNovel_Close(ModalResult result)
+    {
+        modal.OnClose -= NewNovel_Close;
+
+        if (!result.Success)
+            return;
+
+        if (result.Data is not string title)
+            return;
+
+        var novel = new ItemModel
+            {
+                Name = title,
+                Index = _novels.Count()
+            };
+
+        var chaptersCategory = new ItemModel
+            {
+                ParentId = novel.Id,
+                Name = "Chapters",
+            };
+
+        Settings.Display.LastView = chaptersCategory.Id;
+
+        if (await db.Create(novel, DatabaseService.Novels))
+        {
+            await db.Create(chaptersCategory, DatabaseService.Categories);
+
+            nav.NavigateTo($"/novel/{novel.Id}");
+        }
+    }
+
+    // ==========================
+    // ===== Methods: edit title
+    // ==========================
+
+    private ItemModel _novelEditTitle;
+
+    private void Edit_Click(ItemModel novel)
+    {
+        _novelEditTitle = novel;
+
+        var parameters = new ModalParameters();
+
+        parameters.Add("Title", novel.Name);
+
+        modal.OnClose += Edit_Close;
+
+        modal.Show<EditTitle>(parameters);
+    }
+
+    private async void Edit_Close(ModalResult result)
+    {
+        modal.OnClose -= Edit_Close;
+
+        if (result.Success)
+        {
+            var title = result.Data as string;
+
+            _novelEditTitle.Name = title;
+
+            await db.Save(_novelEditTitle, DatabaseService.Novels);
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // =========================
+    // ===== Methods: edit tags
+    // =========================
+
+    private void Tags_Click(ItemModel novel)
+    {
+        var parameters = new ModalParameters();
+
+        parameters.Add("Item", novel);
+
+        modal.OnClose += Tags_Close;
+
+        modal.Show<EditTags>(parameters);
+    }
+
+    private async void Tags_Close(ModalResult rseult)
+    {
+        modal.OnClose -= Tags_Close;
+
+        await Initialized();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ==========================
+    // ===== Methods: copy novel
+    // ==========================
+
+    private async void Copy_Click(ItemModel novel)
+    {
+        var novelCopy = novel.Clone();
+
+        await db.Create(novelCopy, DatabaseService.Novels);
+
+        foreach (var category in await db.GetChildren(novel.Id, DatabaseService.Categories))
+        {
+            var categoryCopy = category.Clone();
+
+            await db.Create(categoryCopy, DatabaseService.Categories);
+
+            foreach (var group in await db.GetChildren(category.Id, DatabaseService.Groups))
+            {
+                var groupCopy = group.Clone();
+
+                await db.Create(groupCopy, DatabaseService.Groups);
+
+                foreach (var item in await db.GetChildren(group.Id, DatabaseService.Items))
+                {
+                    var itemCopy = item.Clone();
+
+                    await db.Create(itemCopy, DatabaseService.Items);
+                }
+            }
+        }
+
+        var tags = _tags[novel.Id];
+
+        foreach (var tag in tags)
+        {
+            // Create a copy of the tag
+            var tagCopy = new ItemTagModel
+                {
+                    ItemId = novelCopy.Id,
+                    TagId = tag.Id
+                };
+
+            // Save the copied tag
+            await db.Create(tagCopy);
+        }
+
+        // Update the list of tags for the copied novel
+        var tagsCopy = await db.GetChildren(novelCopy.Id, DatabaseService.Tags);
+
+        _tags.Add(novelCopy.Id, tagsCopy);
+
+        // Now insert th ecopy into the list
+        _novels.Insert(novel.Index + 1, novelCopy);
+
+        // Loop the list to update all the indexes
+        for (int i = 0; i < _novels.Count; i++)
+        {
+            // Set the current novel index
+            _novels[i].Index = i;
+
+            // Save the updated novel
+            await db.Save(_novels[i], DatabaseService.Novels);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // =========================
+    // ===== Methods: archiving
+    // =========================
+
+    private async Task Archive_Click(ItemModel novel)
+    {
+        novel.Archived = !novel.Archived;
+
+        await db.Save(novel, DatabaseService.Novels);
+
+        await GetNovels();
+    }
+
+    // ============================
+    // ===== Methods: delete novel
+    // ============================
+
+    private ItemModel _novelToDelete;
+
+    private void Delete_Click(ItemModel novel)
+    {
+        _novelToDelete = novel;
+
+        modal.OnClose += Delete_Close;
+
+        modal.Show<DeleteItem>();
+    }
+
+    private async void Delete_Close(ModalResult result)
+    {
+        modal.OnClose -= Delete_Close;
+
+        if (result.Success)
+        {
+            foreach (var category in await db.GetChildren(_novelToDelete.Id, DatabaseService.Categories))
+            {
+                foreach (var group in await db.GetChildren(category.Id, DatabaseService.Groups))
+                {
+                    foreach (var item in await db.GetChildren(group.Id, DatabaseService.Items))
+                    {
+                        await db.Delete(item.Id, DatabaseService.Items);
+                    }
+                    await db.Delete(group.Id, DatabaseService.Groups);
+                }
+
+                await db.Delete(category.Id, DatabaseService.Categories);
+            }
+
+            await db.Delete(_novelToDelete.Id, DatabaseService.Novels);
+
+            _novels.Remove(_novelToDelete);
+
+            // Loop all the novels and update their stored index
+            _novels = _novels.OrderBy(x => x.Index).ToList();
+
+            for (int i = 0; i < _novels.Count; i++)
+            {
+                // Set the current novel index
+                _novels[i].Index = i;
+
+                // Save the updated index
+                await db.Save(_novels[i], DatabaseService.Novels);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // =============================
+    // ===== Methods: publish novel
+    // =============================
+
+    void Publish_Click(ItemModel novel)
+    {
+        var parameters = new ModalParameters();
+        parameters.Add("Id", novel.Id);
+
+        modal.OnClose += Publish_Close;
+        modal.Show<PublishNovel>(parameters);
+    }
+
+    void Publish_Close(ModalResult result)
+    {
+        modal.OnClose -= Publish_Close;
+    }
+
+    // ===========================
+    // ===== Methods: Drag & drop
+    // ===========================
+
+    // Track which chapter is being dragged
+    private int _currentIndex;
+
+    private void Drag(Guid id)
+    {
+        // Get the index of the dragged chapter
+        _currentIndex = _novels.Where(x => x.Id == id).FirstOrDefault().Index;
+    }
+
+    private async void Drop(Guid id)
+    {
+        var novel = _novels.Where(x => x.Id == id).FirstOrDefault();
+
+        if (novel == null)
+            return;
+
+        // Get the index of chapter we dropped onto
+        int index = _novels.IndexOf(novel);
+
+        // Get the chapter that was dragged
+        var dragged = _novels[_currentIndex];
+
+        // If the dragged item is null, return early
+        if (dragged == null)
+            return;
+
+        // Remove the dragged chapter from its current index
+        _novels.RemoveAt(_currentIndex);
+
+        // Insert the dragged chapter
+        _novels.Insert(index, dragged);
+
+        // Loop all the chapters and update their stored indexes
+        for (int i = 0; i < _novels.Count; i++)
+        {
+            // Set the current chapters index
+            _novels[i].Index = i;
+
+            // Save the chapter
+            await db.Save(_novels[i], DatabaseService.Novels);
+        }
+
+        // Update the current index
+        _currentIndex = index;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+}
+

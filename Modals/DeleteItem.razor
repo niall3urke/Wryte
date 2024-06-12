@@ -1,0 +1,24 @@
+﻿@inject ModalService modal
+
+<div class="modal-background"></div>
+<div class="modal-content">
+    <div class="box p6-tablet">
+        <a class="is-pulled-right delete" @onclick="Cancel"></a>
+        <p class="title">Delete</p>
+        <p class="subtitle">Woah! Are you sure?</p>
+        <div class="buttons is-right">
+            <button @onclick="Cancel" class="button is-danger is-inverted">No, keep it</button>
+            <button @onclick="Remove" class="button is-danger">Yes, delete it</button>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    // Events
+
+    void Remove() => modal.Close(ModalResult.OK());
+
+    void Cancel() => modal.Close(ModalResult.Cancel());
+
+}

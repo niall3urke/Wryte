@@ -1,0 +1,53 @@
+﻿@using Wryte.Code
+@inherits LayoutComponentBase
+
+@inject DatabaseService db
+
+<main class="@(Settings.DarkMode ? "has-background-dark" : "has-background-light")" style="min-height: 100vh">
+    <p class="is-size-7" style="position: absolute; right: 2px; top: 0px; z-index: 1;">
+        <a class="has-text-white" href="/roadmap">@Global.VERSION</a>
+    </p>
+    <CascadingValue Value="Settings">
+        @Body
+    </CascadingValue>
+    <Modal />
+</main>
+
+@code {
+
+    // Properties
+
+    public SettingsModel Settings { get; set; }
+
+    // Events
+
+    protected override void OnInitialized()
+    {
+        Settings = new SettingsModel();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            Settings = await db.GetSettings();
+
+            Settings.Update = Update;
+            Settings.Display.Update = Update;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Failed " + ex.Message);
+        }
+    }
+
+    // Methods
+
+    private async void Update()
+    {
+        await db.Save(Settings);
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+}

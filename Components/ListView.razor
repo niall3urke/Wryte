@@ -1,0 +1,77 @@
+﻿@using System.Globalization
+
+<div class="box @(Settings.DarkMode ? "has-text-white" : "")" style="@(Settings.DarkMode ? "background: #404040;" : "")" draggable="true" @key="Item.Id" @ondrop="() => Drop.InvokeAsync(Item.Id)" @ondrag="() => Drag.InvokeAsync(Item.Id)">
+    <div class="level">
+        <div class="level-left">
+            <div class="level-item">
+                <span class="icon is-medium grabbable">
+                    <i class="fa fa-grip-vertical"></i>
+                </span>
+            </div>
+            <div class="level-item">
+                <a class="@(Settings.DarkMode ? "has-text-white" : "")" href="/novel/@Prefix/@Item.Id">@Item.Name</a>
+            </div>
+        </div>
+        <div class="level-right">
+            <div class="level-item">
+                <div class="has-text-centered ml-3 mr-3">
+                    <p class="heading">Edited</p>
+                    <p class="help">@Item.Updated.ToString("g", DateTimeFormatInfo.InvariantInfo)</p>
+                </div>
+            </div>
+            <div class="level-item">
+                <div class="buttons">
+                    <button class="button is-white" title="Edit" @onclick="() => Edit.InvokeAsync(Item.Id)">
+                        <span class="icon">
+                            <i class="fa fa-edit"></i>
+                        </span>
+                    </button>
+                    <button class="button is-white" title="Copy" @onclick="() => Copy.InvokeAsync(Item.Id)">
+                        <span class="icon">
+                            <i class="fa fa-copy"></i>
+                        </span>
+                    </button>
+                    <button class="button is-white" title="@(Item.Archived ? "Restore": "Archive")" @onclick="() => Archive.InvokeAsync(Item.Id)">
+                        <span class="icon">
+                            <i class="fa @(Item.Archived ? "fa-eye-slash" : "fa-eye")"></i>
+                        </span>
+                    </button>
+                    <button class="button is-white" title="Delete" @onclick="() => Delete.InvokeAsync(Item.Id)">
+                        <span class="icon has-text-danger">
+                            <i class="fa fa-trash"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter] public INovelItem Item { get; set; }
+
+    [Parameter] public string Prefix { get; set; }
+
+    // Parameters - events
+
+    [Parameter] public EventCallback<Guid> Archive { get; set; }
+
+    [Parameter] public EventCallback<Guid> Delete { get; set; }
+
+    [Parameter] public EventCallback<Guid> Edit { get; set; }
+
+    [Parameter] public EventCallback<Guid> Copy { get; set; }
+
+    [Parameter] public EventCallback<Guid> Drop { get; set; }
+
+    [Parameter] public EventCallback<Guid> Drag { get; set; }
+
+
+}

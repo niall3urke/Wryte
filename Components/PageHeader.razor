@@ -1,0 +1,61 @@
+﻿@using Wryte.Code
+<section class="hero is-dark">
+    <div class="hero-head">
+        <div class="container is-max-widescreen">
+            <div class="level pt-5 pb-5">
+                <div class="level-left">
+                    <div class="level-item is-hidden-mobile">
+                        <nav class="breadcrumb" aria-label="breadcrumbs">
+                            <ul>
+                                @foreach (var bookmark in Bookmarks)
+                                {
+                                    if (bookmark == Bookmarks.Last())
+                                    {
+                                       <li class="is-active"><a class="has-text-white" href="@bookmark.Href" aria-current="page">@bookmark.Name</a></li>
+                                    }
+                                    else
+                                    {
+                                       <li><a class="has-text-white" href="@bookmark.Href">@bookmark.Name</a></li>
+                                    }
+                                }
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+                <div class="level-right">
+                    <div class="buttons is-centered">
+                        <button class="button is-dark">
+                            <span class="icon">
+                                <i class="fa fa-user"></i>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-body">
+        <div class="container is-max-widescreen">
+            <div class="field">
+                <label class="heading has-text-centered">@Heading</label>
+                <p class="control">
+                    <input class="input is-static title is-1 is-size-3-mobile has-text-centered" value="@Item.Name" @onchange="() => TitleChanged.InvokeAsync(Item)" />
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+
+    public EventCallback<INovelItem> TitleChanged { get; set; }
+
+    public IEnumerable<BookmarkItem> Bookmarks { get; set; }
+
+    public INovelItem Item { get; set; }
+
+    public string Heading { get; set; }
+
+
+
+}

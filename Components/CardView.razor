@@ -1,0 +1,119 @@
+﻿@using System.Globalization
+@inject DatabaseService db
+
+<div class="box @(Settings.DarkMode ? "has-text-white" : "")" style="height: 100%; @(Settings.DarkMode ? "background: #404040;" : "")" draggable="true" @key="Item.Id" @ondrop="() => Drop.InvokeAsync(Item.Id)" @ondrag="() => Drag.InvokeAsync(Item.Id)">
+    <div class="columns is-gapless is-marginless is-mobile mb-3">
+        <div class="column">
+            <p class="title is-5 mb-3">
+                <a class="@(Settings.DarkMode ? "has-text-white" : "")" href="@Prefix/@Item.Id">@Item.Name</a>
+            </p>
+            <p class="heading">
+                Edited @Item.Updated.ToString("g", DateTimeFormatInfo.InvariantInfo)
+            </p>
+        </div>
+        <div class="column is-narrow">
+            <div class="dropdown is-hoverable is-right">
+                <div class="dropdown-trigger">
+                    <button class="button is-white" aria-haspopup="true" aria-controls="dropdown-menu">
+                        <span class="icon is-small">
+                            <i class="fas fa-angle-down" aria-hidden="true"></i>
+                        </span>
+                    </button>
+                </div>
+                <div class="dropdown-menu" id="dropdown-menu" role="menu">
+                    <div class="dropdown-content">
+                        <a class="dropdown-item" title="Rename" @onclick="() => Edit.InvokeAsync(Item.Id)">
+                            <span class="icon">
+                                <i class="fa fa-edit"></i>
+                            </span>
+                            Rename
+                        </a>
+                        <a class="dropdown-item" title="Tags" @onclick="() => Tags.InvokeAsync(Item.Id)">
+                            <span class="icon">
+                                <i class="fa fa-tag"></i>
+                            </span>
+                            Tags
+                        </a>
+                        <a class="dropdown-item" title="Copy" @onclick="() => Copy.InvokeAsync(Item.Id)">
+                            <span class="icon">
+                                <i class="fa fa-copy"></i>
+                            </span>
+                            Copy
+                        </a>
+                        <a class="dropdown-item" title="@(Item.Archived ? "Restore": "Archive")" @onclick="() => Archive.InvokeAsync(Item.Id)">
+                            <span class="icon">
+                                <i class="fa @(Item.Archived ? "fa-eye-slash" : "fa-eye")"></i>
+                            </span>
+                            @(Item.Archived ? "Restore" : "Archive")
+                        </a>
+                        @if (Publish.HasDelegate)
+                        {
+                            <a class="dropdown-item" title="Publish" @onclick="() => Publish.InvokeAsync(Item.Id)">
+                                <span class="icon">
+                                    <i class="fa fa-book"></i>
+                                </span>
+                                Publish
+                            </a>
+                        }
+                        <hr class="dropdown-divider">
+                        <a class="dropdown-item" title="Delete" @onclick="() => Delete.InvokeAsync(Item.Id)">
+                            <span class="icon has-text-danger">
+                                <i class="fa fa-trash"></i>
+                            </span>
+                            Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (ItemTags != null)
+    {
+        <span class="tags">
+            @foreach (var tag in ItemTags)
+            {
+                <a href="/tags/@tag.Id" class="tag is-dark">@tag.Name</a>
+            }
+        </span>
+    }
+</div>
+
+@code {
+
+
+    // Cascades
+
+    [CascadingParameter] public SettingsModel Settings { get; set; }
+
+    // Parameters
+
+    [Parameter] public IEnumerable<ItemModel> ItemTags { get; set; }
+
+    [Parameter] public INovelItem Item { get; set; }
+
+    [Parameter] public string Prefix { get; set; }
+
+    // Parameters - events
+
+    [Parameter] public EventCallback<Guid> Archive { get; set; }
+
+    [Parameter] public EventCallback<Guid> Publish { get; set; }
+
+    [Parameter] public EventCallback<Guid> Delete { get; set; }
+
+    [Parameter] public EventCallback<Guid> Edit { get; set; }
+
+    [Parameter] public EventCallback<Guid> Copy { get; set; }
+
+    [Parameter] public EventCallback<Guid> Tags { get; set; }
+
+    [Parameter] public EventCallback<Guid> Drop { get; set; }
+
+    [Parameter] public EventCallback<Guid> Drag { get; set; }
+
+
+
+
+
+}

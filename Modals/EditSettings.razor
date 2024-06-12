@@ -1,0 +1,371 @@
+﻿@inject DatabaseService db
+@inject ModalService modal
+
+<div class="modal-card">
+    <header class="modal-card-head">
+        <p class="modal-card-title">Settings</p>
+        <button class="delete" aria-label="close" @onclick="Close_Click"></button>
+    </header>
+    <section class="modal-card-body">
+        <div class="tabs is-medium is-fullwidth">
+            <ul>
+                <li class="@(_showToolbar ? "" : "is-active")" @onclick="() => _showToolbar = false"><a>General</a></li>
+                <li class="@(_showToolbar ? "is-active" : "")" @onclick="() => _showToolbar = true"><a>Editor</a></li>
+            </ul>
+        </div>
+        @if (_showToolbar)
+        {
+            @* <div class="box has-background-light is-shadowless">
+                <p class="heading mb-4">Editor Theme</p>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Editor Theme</a>
+                </div>
+                <div class="column">
+                <div class="buttons mb-1">
+                <button class="button is-rounded @(_settings.Toolbar.Theme == "snow" ? "is-dark is-selected" : "")" @onclick="ThemeSnow_Click">Snow</button>
+                <button class="button is-rounded @(_settings.Toolbar.Theme == "snow" ? "" : "is-dark is-selected")" @onclick="ThemeBubble_Click">Bubble</button>
+                </div>
+                <p class="help">Switch between a fixed and floating editor (requires refresh)</p>
+                </div>
+                </div>
+                </div>*@
+            <div class="box has-background-light is-shadowless">
+                <p class="heading mb-4">Editor Buttons</p>
+                <div class="columns">
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch1" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowBold">
+                            <label for="switch1">Bold</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch2" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowItalic">
+                            <label for="switch2">Italic</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch3" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowUnderline">
+                            <label for="switch3">Underline</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch4" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowStrike">
+                            <label for="switch4">Strikethrough</label>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch5" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowHeading1">
+                            <label for="switch5">Heading 1</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch6" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowHeading2">
+                            <label for="switch6">Heading 2</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch7" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowBlockquote">
+                            <label for="switch7">Blockquote</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch8" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowCodeblock">
+                            <label for="switch8">Codeblock</label>
+                        </div>
+                    </div>
+                </div>
+                <hr class="has-background-white" />
+                <div class="columns">
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch9" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowUnorderedList">
+                            <label for="switch9">Bullets</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch10" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowOrderedList">
+                            <label for="switch10">List</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch11" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowSubscript">
+                            <label for="switch11">Subscript</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch12" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowSuperscript">
+                            <label for="switch12">Superscript</label>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch13" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowIndentForward">
+                            <label for="switch13">Indent</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch14" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowIndentBackward">
+                            <label for="switch14">Outdent</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch15" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowAlignments">
+                            <label for="switch15">Alignment</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch16" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowRightToLeft">
+                            <label for="switch16">Right to Left</label>
+                        </div>
+                    </div>
+                </div>
+                <hr class="has-background-white" />
+                <div class="columns">
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch17" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowFonts">
+                            <label for="switch17">Fonts</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch18" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowFontSizes">
+                            <label for="switch18">Sizes</label>
+                        </div>
+                    </div>
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch19" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowFontColor">
+                            <label for="switch19">Font Color</label>
+                        </div>
+                        <div class="field">
+                            <input id="switch20" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowFontBackgroundColor">
+                            <label for="switch20">Background Color</label>
+                        </div>
+                    </div>
+                </div>
+                <hr class="has-background-white" />
+                <div class="columns">
+                    <div class="column">
+                        <div class="field">
+                            <input id="switch21" type="checkbox" class="switch is-rounded" @bind="@_settings.Toolbar.ShowClean">
+                            <label for="switch21">Clean</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="box has-background-light is-shadowless">
+                <p class="heading mb-4">Display Settings</p>
+                <table class="table is-fullwidth is-borderless has-background-light">
+                    <tbody>
+                        <tr>
+                            <td>Show header</td>
+                            <td>
+                                <div class="field">
+                                    <div class="control">
+                                        <input id="switchSceneTitle" type="checkbox" class="switch is-rounded" @bind="@_settings.ShowHeader">
+                                        <label for="switchSceneTitle"></label>
+                                    </div>
+                                    <p class="help">Show the scene's title</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Focus mode</td>
+                            <td>
+                                <div class="field">
+                                    <div class="control">
+                                        <input id="switchFocusMode" type="checkbox" class="switch is-rounded" @bind="@_settings.AutoFade">
+                                        <label for="switchFocusMode"></label>
+                                    </div>
+                                    <p class="help">Fade out elements after 10 seconds of no mouse movement</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Dark mode</td>
+                            <td>
+                                <div class="field">
+                                    <div class="control">
+                                        <input id="switchDarkMode" type="checkbox" class="switch is-rounded" @bind="@_settings.DarkMode">
+                                        <label for="switchDarkMode"></label>
+                                    </div>
+                                    <p class="help">Reduces eye strain in a dark environment</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="box has-background-light is-shadowless">
+                <p class="heading">Writing Settings</p>
+                <table class="table is-fullwidth is-borderless has-background-light">
+                    <tbody>
+                        <tr>
+                            <td>Typewriter</td>
+                            <td>
+                                <div class="field">
+                                    <div class="control">
+                                        <input id="switch4" type="checkbox" class="switch is-rounded" @bind="@_settings.Typewriter">
+                                        <label for="switch4"></label>
+                                    </div>
+                                    <p class="help">Limits the editor pane to half the page height (requires refresh)</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Auto Save</td>
+                            <td>
+                                <div class="field">
+                                    <div class="control">
+                                        <input id="switch5" type="checkbox" class="switch is-rounded" @bind="@_settings.AutoSave">
+                                        <label for="switch5"></label>
+                                    </div>
+                                    <p class="help">Automatically save your work every 10 seconds</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Page width</td>
+                            <td>
+                                <div class="field">
+                                    <div class="control">
+                                        <div class="select is-rounded">
+                                            <select @bind="_settings.PageWidth">
+                                                <option value="is-thin">Thin</option>
+                                                <option value="is-narrow">Narrow</option>
+                                                <option value="is-normal">Normal</option>
+                                                <option value="">Large</option>
+                                                <option value="is-fluid">Fullwidth</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p class="help">Adjust the width of the writing pane</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            @*<div class="box has-background-light is-shadowless">
+                <p class="heading mb-4">Display Settings</p>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Show Header</a>
+                </div>
+                <div class="column">
+                <div class="buttons mb-1">
+                <button class="button is-rounded @(_settings.ShowHeader? "is-dark is-selected" : "")" @onclick="() => _settings.ShowHeader = true">Show</button>
+                <button class="button is-rounded @(_settings.ShowHeader? "" : "is-dark is-selected")" @onclick="() => _settings.ShowHeader = false">Hide</button>
+                </div>
+                <p class="help">Show the scene's title</p>
+                </div>
+                </div>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Focus Mode</a>
+                </div>
+                <div class="column">
+                <div class="buttons mb-1">
+                <button class="button is-rounded @(_settings.AutoFade ? "is-dark is-selected" : "")" @onclick="() => _settings.AutoFade = true">On</button>
+                <button class="button is-rounded @(_settings.AutoFade ? "" : "is-dark is-selected")" @onclick="() => _settings.AutoFade = false">Off</button>
+                </div>
+                <p class="help">Fade out elements after 10 seconds of no mouse movement</p>
+                </div>
+                </div>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Dark Mode</a>
+                </div>
+                <div class="column">
+                <div class="buttons mb-1">
+                <button class="button is-rounded @(_settings.DarkMode ? "is-dark is-selected" : "")" @onclick="() => _settings.DarkMode = true">On</button>
+                <button class="button is-rounded @(_settings.DarkMode ? "" : "is-dark is-selected")" @onclick="() => _settings.DarkMode = false">Off</button>
+                </div>
+                <p class="help">Reduces eye strain in a dark environment</p>
+                </div>
+                </div>
+                </div>
+                <div class="box has-background-light is-shadowless">
+                <p class="heading mb-4">Writing Settings</p>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Page Width</a>
+                </div>
+                <div class="column">
+                <div class="select is-rounded">
+                <select name="pageWidth" @bind="_settings.PageWidth">
+                <option value="is-thin">Thin</option>
+                <option value="is-narrow">Narrow</option>
+                <option value="is-normal">Normal</option>
+                <option value="">Large</option>
+                <option value="is-fluid">Fullwidth</option>
+                </select>
+                </div>
+                <p class="help">Adjust the width of the writing pane</p>
+                </div>
+                </div>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Typewriter</a>
+                </div>
+                <div class="column">
+                <div class="buttons mb-1">
+                <button class="button is-rounded @(_settings.Typewriter ? "is-dark is-selected" : "")" @onclick="() => _settings.Typewriter = true">On</button>
+                <button class="button is-rounded @(_settings.Typewriter ? "" : "is-dark is-selected")" @onclick="() => _settings.Typewriter = false">Off</button>
+                </div>
+                <p class="help">Limits the editor pane to half the page height</p>
+                </div>
+                </div>
+                <div class="columns">
+                <div class="column is-3">
+                <a class="button is-static has-text-dark has-text-weight-bold" style="border: none;">Auto Save</a>
+                </div>
+                <div class="column">
+                <div class="buttons mb-1">
+                <button class="button is-rounded @(_settings.AutoSave ? "is-dark is-selected" : "")" @onclick="() => _settings.AutoSave = true">On</button>
+                <button class="button is-rounded @(_settings.AutoSave ? "" : "is-dark is-selected")" @onclick="() => _settings.AutoSave = false">Off</button>
+                </div>
+                <p class="help">Automatically save your work every 10 seconds</p>
+                </div>
+                </div>
+                </div>*@
+        }
+    </section>
+    <footer class="modal-card-foot">
+        <button class="button is-primary is-rounded" @onclick="Close_Click">Close</button>
+    </footer>
+</div>
+
+@code {
+
+    // Cascades
+
+    [CascadingParameter] ModalParameters Parameters { get; set; }
+
+    // Fields
+
+    private SettingsModel _settings;
+
+    private bool _showToolbar;
+
+    // Events
+
+    protected override void OnInitialized()
+    {
+        _settings = new SettingsModel();
+
+        if (Parameters.TryGet<SettingsModel>("Settings", out SettingsModel settings))
+        {
+            _settings = settings;
+        }
+    }
+
+    // Methods
+
+    private void ThemeSnow_Click() =>
+        _settings.Toolbar.Theme = "snow";
+
+    private void ThemeBubble_Click() =>
+        _settings.Toolbar.Theme = "bubble";
+
+    private async void Close_Click()
+    {
+        await db.Save(_settings);
+
+        modal.Close(ModalResult.OK<SettingsModel>(_settings));
+    }
+
+}

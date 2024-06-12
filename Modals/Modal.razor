@@ -1,0 +1,69 @@
+﻿@implements IDisposable
+
+<div class="modal @(Visible ? "is-active": "")">
+    <div @onclick="OnClickBackground" class="modal-background"></div>
+    <div class="modal-content">
+        <CascadingValue Value="Parameters">
+            @Content
+        </CascadingValue>
+    </div>
+</div>
+
+@code {
+
+    // Injects
+
+        [Inject] ModalService Service { get; set; }
+
+        // Properties
+
+        protected ModalParameters Parameters { get; set; }
+
+        protected RenderFragment Content { get; set; }
+
+        protected bool Visible { get; set; }
+
+        // Events
+
+        protected override void OnInitialized()
+        {
+            base.OnInitialized();
+
+            Service.ShowModal += ShowModal;
+            Service.CloseModal += CloseModal;
+        }
+
+        // Handlers
+
+        void ShowModal(RenderFragment content, ModalParameters parameters)
+        {
+            Parameters = parameters;
+            Content = content;
+            Visible = true;
+
+            StateHasChanged();
+        }
+
+        void CloseModal()
+        {
+            Visible = false;
+            Content = null;
+
+            StateHasChanged();
+        }
+
+        void OnClickBackground()
+        {
+            Service.Close(ModalResult.Cancel());
+        }
+
+        // Methods - interfaces
+
+        public void Dispose()
+        {
+            Service.ShowModal -= ShowModal;
+            Service.CloseModal -= CloseModal;
+        }
+
+
+}

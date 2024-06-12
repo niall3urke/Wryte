@@ -1,0 +1,57 @@
+﻿@inject ModalService modal
+
+<div class="box p6-tablet">
+    <a class="is-pulled-right delete" @onclick="Close_Click"></a>
+    <p class="title">Title</p>
+    <p class="subtitle">Names matter, make it count</p>
+    <div class="columns">
+        <div class="column">
+            <div class="field">
+                <p class="control">
+                    <input class="input" type="text" @bind="_title" @onkeyup="NameOnKeyUp" @ref="_input" />
+                </p>
+            </div>
+        </div>
+        <div class="column is-narrow">
+            <button class="button is-dark" @onclick="Create_Click">
+                Create
+            </button>
+        </div>
+    </div>
+</div>
+<button class="modal-close is-large" aria-label="close" @onclick="Close_Click"></button>
+
+@code {
+
+    // Fields
+
+    private ElementReference _input;
+
+    private string _title;
+
+    // Events
+
+    protected override void OnAfterRender(bool firstRender) => _input.FocusAsync();
+
+    private void NameOnKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+        {
+            Create_Click();
+        }
+    }
+
+    // Methods
+
+    private void Create_Click()
+    {
+        if (string.IsNullOrWhiteSpace(_title))
+            return;
+
+        modal.Close(ModalResult.OK<string>(_title));
+    }
+
+    private void Close_Click() => modal.Close(ModalResult.Cancel());
+
+
+}
