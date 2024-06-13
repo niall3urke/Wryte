@@ -101,27 +101,7 @@ namespace Wryte.Pages
                 .Build();
 
         }
-
-
-        //private void SetWordsWritten()
-        //{
-        //    // Number of words: month, week and day
-        //    int month = GetTotalWordsWritten(_recordsMonth);
-        //    int week = GetTotalWordsWritten(_recordsWeek);
-        //    int day = GetTotalWordsWritten(_recordsDay);
-
-        //    // Get averages
-        //    int averageUsed = GetWordsPerDayUsed(month, _recordsMonth);
-        //    int averageAll = GetWordsPerDayForMonth(month);
-
-        //    // Set labels
-        //    WordsAverage = string.Format("{0} / {1}", averageAll, averageUsed);
-        //    //WordsTotal = File.Current.WordCount.ToString();
-        //    WordsMonth = month.ToString();
-        //    WordsWeek = week.ToString();
-        //    WordsDay = day.ToString();
-        //}
-
+        
         private int GetWordsPerDayUsed(int totalWords, List<SessionModel> stats)
         {
             // Find the average for days in which the user used Movel
@@ -155,17 +135,6 @@ namespace Wryte.Pages
             stats.ForEach(x => totalWords += x.WordCountEnd - x.WordCountStart);
             
             return totalWords;
-        }
-
-        private void SetTimeSpent()
-        {
-            //var month = GetTotalTime(_recordsMonth);
-            //var week = GetTotalTime(_recordsWeek);
-            //var day = GetTotalTime(_recordsDay);
-
-            //LblTimeMonth.Text = string.Format("{0}d {1}h {2}m", month.Days, month.Hours, month.Minutes);
-            //LblTimeWeek.Text = string.Format("{0}d {1}h {2}m", week.Days, week.Hours, week.Minutes);
-            //LblTimeDay.Text = string.Format("{0}h {1}m", day.Hours, day.Minutes);
         }
 
         private TimeSpan GetTotalTime(List<SessionModel> stats)
