@@ -326,6 +326,8 @@
         
         _item.Html = await js.InvokeAsync<string>("QuillFunctions.getQuillHTML", _quillElement);
 
+        _item.Html = await js.InvokeAsync<string>("QuillFunctions.getQuillHTML", _quillElement);
+
         await db.Save(_item, DatabaseService.Items);
     }
 
