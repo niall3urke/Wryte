@@ -428,7 +428,7 @@
 
             await db.Create(item, DatabaseService.Items);
 
-            nav.NavigateTo($"/novel/{_group.Name.ToLower()}/{item.Id}");
+            nav.NavigateTo($"/novel/item/{item.Id}");
         }
     }
 
