@@ -45,6 +45,8 @@ Wryte is a writing tool that allows you to create novels, chapters, scenes, and 
 4. Select which chapters to include in the generated EPUB
 5. Click Generate and download your very own novel
 
+**Note:** You currently need to have a group called "Chapters" in order to export your novel to EBUB. 
+
 ## Why Wryte
 
 Wryte was inspired by other paid-for writing applications. It was created to provide a free, accessible, and fun alternative for writers who want to focus on their craft without the need for complicated setups or subscriptions.
