@@ -47,6 +47,27 @@ Wryte is a writing tool that allows you to create novels, chapters, scenes, and 
 
 **Note:** You currently need to have a group called "Chapters" in order to export your novel to EBUB. 
 
+### Overview
+Creating a novel is simple. Click the button, give it a name, create a chapter, a scene and you're off. 
+
+<img src="https://github.com/niall3urke/Wryte/assets/11950726/68474d78-c06b-4c6d-85e2-6706a4d2212c" width="600" style="margin-bottom: 50px;"/>
+
+Add as many collections as you want.
+
+<img src="https://github.com/niall3urke/Wryte/assets/11950726/e943f413-a5fe-4615-9936-20698f723dd7" width="600" />
+
+Attach events to any novel, collection (chapters etc.), and items (scenes etc.).
+
+<img src="https://github.com/niall3urke/Wryte/assets/11950726/0d15b3e8-c009-4adf-a384-b98ca52bb1e1" width="600" />
+
+Toggle distraction free writing, and other options.
+
+<img src="https://github.com/niall3urke/Wryte/assets/11950726/17093167-104e-429e-8a1b-f1f03a097f7e" width="600" />
+ 
+And when you're done, generate and EPUB of your novel.
+
+<img src="https://github.com/niall3urke/Wryte/assets/11950726/b860a15a-5ce2-465e-ab48-af54869a9480" width="600" />
+
 ## Why Wryte
 
 Wryte was inspired by other paid-for writing applications. It was created to provide a free, accessible, and fun alternative for writers who want to focus on their craft without the need for complicated setups or subscriptions.
